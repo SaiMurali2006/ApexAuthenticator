@@ -26,12 +26,26 @@ dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
 Crypto/         Fernet.cs (AES-256-CBC + HMAC-SHA256), Scrypt.cs (RFC 7914)
 Models/         AuthAccount, VaultPayload (plaintext), VaultEnvelope (encrypted JSON on disk)
-Services/       VaultService (unlock/save/export/import), TotpService (RFC 6238), IconFactory (procedural GDI+)
-*.xaml/.cs      WPF UI — no MVVM framework, all UI built imperatively in C#
+Services/       VaultService (unlock/save/export/import), TotpService (RFC 6238),
+                IconFactory (procedural GDI+), TrayService (tray icon + menu lifecycle)
+UI/             DialogBase (shared dialog chrome), AccountCardFactory (card builder + AnimateIn),
+                AccountDialog, PasswordPrompt, DarkMessageDialog (all extend DialogBase)
+*.xaml/.cs      WPF main window — no MVVM framework, all UI built imperatively in C#
 App.xaml        Global color resources and button/input styles (single source of truth for theming)
 ```
 
 **No MVVM.** All UI is built imperatively — `new Button()`, `new TextBlock()`, etc.
+
+### Module responsibilities
+| File | Does one thing |
+|---|---|
+| `Services/TrayService.cs` | Owns `NotifyIcon` + `Drawing.Icon`; dispatches callbacks to WPF thread |
+| `UI/DialogBase.cs` | Shared window chrome (border, title, accent bar, drag-move); base for all dialogs |
+| `UI/AccountCardFactory.cs` | Builds account cards; owns `AnimateIn`, `FormatCode`; returns direct `TextBlock` ref via `out` |
+| `UI/AccountDialog.cs` | Add/edit dialog — extends `DialogBase` |
+| `UI/PasswordPrompt.cs` | Password input dialog — extends `DialogBase` |
+| `UI/DarkMessageDialog.cs` | Confirm/error dialog — extends `DialogBase` |
+| `MainWindow.xaml.cs` | Orchestration only: timer, unlock flow, account CRUD, tray/window plumbing |
 
 ## Cryptography Summary
 | Layer | Implementation |
@@ -126,10 +140,13 @@ See "Security Suggestions" section below.
 | File | Responsibility |
 |---|---|
 | [App.xaml](App.xaml) | All colors, button styles, global resources |
-| [MainWindow.xaml.cs](MainWindow.xaml.cs) | Tray, timer, all top-level UI logic |
+| [MainWindow.xaml.cs](MainWindow.xaml.cs) | Orchestration: timer, vault flow, CRUD, window/tray plumbing |
+| [Services/TrayService.cs](Services/TrayService.cs) | Tray icon + menu; owns lifetime of `NotifyIcon` and `Drawing.Icon` |
+| [UI/DialogBase.cs](UI/DialogBase.cs) | Shared chrome for all dialogs; extend this for any new dialog |
+| [UI/AccountCardFactory.cs](UI/AccountCardFactory.cs) | Creates account cards; returns direct `TextBlock` ref via `out` param |
 | [Services/VaultService.cs](Services/VaultService.cs) | Unlock / Save / Export / Import / Lock |
-| [Services/TotpService.cs](Services/TotpService.cs) | TOTP generation, Base32, timing |
+| [Services/TotpService.cs](Services/TotpService.cs) | TOTP generation, Base32, timing helpers |
 | [Crypto/Fernet.cs](Crypto/Fernet.cs) | AES-256-CBC + HMAC-SHA256 encrypt/decrypt |
 | [Crypto/Scrypt.cs](Crypto/Scrypt.cs) | scrypt key derivation (RFC 7914) |
-| [Models/VaultEnvelope.cs](Models/VaultEnvelope.cs) | On-disk format |
+| [Models/VaultEnvelope.cs](Models/VaultEnvelope.cs) | On-disk JSON format |
 | [Models/VaultPayload.cs](Models/VaultPayload.cs) | In-memory decrypted structure |
