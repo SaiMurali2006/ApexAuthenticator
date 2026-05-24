@@ -1,0 +1,9 @@
+bin/
+obj/
+artifacts/
+dist/
+.vs/
+*.user
+*.suo
+*.vault
+*.vault-backup

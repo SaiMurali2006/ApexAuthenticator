@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>false</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>ApexAuth</AssemblyName>
+    <RootNamespace>ApexAuth</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="artifacts\**;dist\**" />
+    <Page Remove="artifacts\**;dist\**" />
+    <ApplicationDefinition Remove="artifacts\**;dist\**" />
+    <None Remove="artifacts\**;dist\**" />
+  </ItemGroup>
+</Project>
