@@ -7,8 +7,8 @@ namespace ApexAuth.Services;
 
 public sealed class TrayService : IDisposable
 {
-    private readonly Drawing.Icon _icon;
     private readonly Forms.NotifyIcon _notify;
+    private Drawing.Icon _icon;
 
     public TrayService(Action onShow, Action onLock, Action onExit)
     {
@@ -27,6 +27,14 @@ public sealed class TrayService : IDisposable
             ContextMenuStrip = menu
         };
         _notify.DoubleClick += (_, _) => Dispatch(onShow);
+    }
+
+    public void RefreshIcon()
+    {
+        var old = _icon;
+        _icon = IconFactory.CreateTrayIcon();
+        _notify.Icon = _icon;
+        old.Dispose();
     }
 
     public void Dispose()

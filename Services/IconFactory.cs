@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Drawing = System.Drawing;
 using Drawing2D = System.Drawing.Drawing2D;
@@ -9,7 +10,7 @@ public static class IconFactory
 {
     public static Drawing.Icon CreateTrayIcon()
     {
-        using var bitmap = CreateLogoBitmap(64);
+        using var bitmap = CreateLogoBitmap(64, AccentColor());
         var handle = bitmap.GetHicon();
         var icon = (Drawing.Icon)Drawing.Icon.FromHandle(handle).Clone();
         NativeMethods.DestroyIcon(handle);
@@ -18,7 +19,7 @@ public static class IconFactory
 
     public static BitmapSource CreateWindowIcon()
     {
-        using var bitmap = CreateLogoBitmap(128);
+        using var bitmap = CreateLogoBitmap(128, AccentColor());
         var handle = bitmap.GetHicon();
         try
         {
@@ -35,26 +36,36 @@ public static class IconFactory
         }
     }
 
-    private static Drawing.Bitmap CreateLogoBitmap(int size)
+    private static Color AccentColor()
+    {
+        if (System.Windows.Application.Current?.Resources["AccentColor"] is Color c)
+            return c;
+        return Color.FromRgb(0x7C, 0x73, 0xFF);
+    }
+
+    private static Drawing.Bitmap CreateLogoBitmap(int size, Color accent)
     {
         var bitmap = new Drawing.Bitmap(size, size);
         using var graphics = Drawing.Graphics.FromImage(bitmap);
         graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias;
         graphics.Clear(Drawing.Color.Transparent);
 
+        var lighter = Lighten(accent, 0.10);
+        var darker  = Darken(accent, 0.40);
+
         var scale = size / 64f;
         using var bg = new Drawing2D.LinearGradientBrush(
             new Drawing.Rectangle(0, 0, size, size),
-            Drawing.Color.FromArgb(255, 139, 130, 255),
-            Drawing.Color.FromArgb(255, 51, 43, 206),
+            Drawing.Color.FromArgb(255, lighter.R, lighter.G, lighter.B),
+            Drawing.Color.FromArgb(255, darker.R, darker.G, darker.B),
             45f);
         using var shine = new Drawing2D.LinearGradientBrush(
             new Drawing.Rectangle(0, 0, size, size / 2),
             Drawing.Color.FromArgb(125, 255, 255, 255),
             Drawing.Color.FromArgb(0, 255, 255, 255),
             90f);
-        using var ring = new Drawing.Pen(Drawing.Color.FromArgb(210, 188, 195, 255), 2.5f * scale);
-        using var glow = new Drawing.Pen(Drawing.Color.FromArgb(120, 118, 108, 255), 7f * scale);
+        using var ring = new Drawing.Pen(Drawing.Color.FromArgb(210, 230, 233, 255), 2.5f * scale);
+        using var glow = new Drawing.Pen(Drawing.Color.FromArgb(120, accent.R, accent.G, accent.B), 7f * scale);
         using var textBrush = new Drawing.SolidBrush(Drawing.Color.White);
         using var font = new Drawing.Font("Segoe UI", 34f * scale, Drawing.FontStyle.Bold, Drawing.GraphicsUnit.Pixel);
         using var textFormat = new Drawing.StringFormat
@@ -72,6 +83,16 @@ public static class IconFactory
         graphics.DrawString("A", font, textBrush, new Drawing.RectangleF(0, 2 * scale, size, 58 * scale), textFormat);
         return bitmap;
     }
+
+    private static Color Lighten(Color c, double amount) => Color.FromRgb(
+        (byte)(c.R + (255 - c.R) * amount),
+        (byte)(c.G + (255 - c.G) * amount),
+        (byte)(c.B + (255 - c.B) * amount));
+
+    private static Color Darken(Color c, double amount) => Color.FromRgb(
+        (byte)(c.R * (1 - amount)),
+        (byte)(c.G * (1 - amount)),
+        (byte)(c.B * (1 - amount)));
 
     private static Drawing.Rectangle ScaleRect(int x, int y, int width, int height, float scale)
     {

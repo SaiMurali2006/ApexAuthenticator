@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer      = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(1.6) };
     private readonly Dictionary<Guid, (AuthAccount Account, TextBlock Block)> _codeBlocks = new();
+    private ThemePopup? _themePopup;
     private long _lastTotpCounter = -1;
     private bool _reallyClose;
     private bool _syncingPasswordFields;
@@ -28,7 +29,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Icon = IconFactory.CreateWindowIcon();
+        RefreshWindowIcon();
         ConfigureLockScreen();
         Opacity = 0;
         RenderTransformOrigin = new Point(0.5, 1);
@@ -40,6 +41,8 @@ public partial class MainWindow : Window
             onShow: ShowFromTray,
             onLock: LockVault,
             onExit: () => { _reallyClose = true; Close(); });
+
+        ThemeService.Current.ThemeChanged += OnThemeChanged;
     }
 
     // ── Startup ──────────────────────────────────────────────────────────────
@@ -61,6 +64,23 @@ public partial class MainWindow : Window
         UnlockButton.Content           = isNew ? "Create Vault" : "Unlock";
         MasterPasswordBox.Focus();
     }
+
+    // ── Theme ────────────────────────────────────────────────────────────────
+
+    private void LogoButton_Click(object sender, RoutedEventArgs e)
+    {
+        _themePopup ??= new ThemePopup(LogoButton);
+        _themePopup.Toggle();
+    }
+
+    private void OnThemeChanged()
+    {
+        RefreshWindowIcon();
+        _tray.RefreshIcon();
+        if (VaultPanel.Visibility == Visibility.Visible) RenderAccounts();
+    }
+
+    private void RefreshWindowIcon() => Icon = IconFactory.CreateWindowIcon();
 
     // ── Lock / Unlock ─────────────────────────────────────────────────────────
 
@@ -130,14 +150,7 @@ public partial class MainWindow : Window
 
         if (_vault.Payload.Accounts.Count == 0)
         {
-            AccountsPanel.Children.Add(new TextBlock
-            {
-                Text = "No accounts yet. Add your first TOTP secret.",
-                Foreground = (Brush)FindResource("MutedBrush"),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                FontSize = 14,
-                Margin = new Thickness(0, 42, 0, 0)
-            });
+            AccountsPanel.Children.Add(BuildEmptyState());
             return;
         }
 
@@ -147,6 +160,33 @@ public partial class MainWindow : Window
             _codeBlocks[account.Id] = (account, block);
             AccountsPanel.Children.Add(card);
         }
+    }
+
+    private static UIElement BuildEmptyState()
+    {
+        var stack = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 48, 0, 0)
+        };
+        stack.Children.Add(new TextBlock
+        {
+            Text = "No accounts yet",
+            Foreground = (Brush)Application.Current.FindResource("TextBrush"),
+            FontSize = 16,
+            FontWeight = FontWeights.Bold,
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Tap + Add to import your first TOTP secret.",
+            Foreground = (Brush)Application.Current.FindResource("MutedBrush"),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 6, 0, 0)
+        });
+        return stack;
     }
 
     // Only recomputes TOTP codes at 30-second boundaries; progress bar updates every tick.
@@ -160,10 +200,14 @@ public partial class MainWindow : Window
 
         var counter = now.ToUnixTimeSeconds() / 30;
         if (counter == _lastTotpCounter) return;
+        var firstRender = _lastTotpCounter == -1;
         _lastTotpCounter = counter;
 
         foreach (var (account, block) in _codeBlocks.Values)
+        {
             block.Text = AccountCardFactory.FormatCode(TotpService.GetCode(account.Secret, now));
+            if (!firstRender) AccountCardFactory.AnimateCodeRefresh(block);
+        }
     }
 
     private void AddButton_Click(object sender, RoutedEventArgs e)
@@ -283,12 +327,13 @@ public partial class MainWindow : Window
 
     private void AnimateWindowIn()
     {
-        WindowScale.ScaleX = WindowScale.ScaleY = 0.96;
+        WindowScale.ScaleX = WindowScale.ScaleY = 0.92;
         Opacity = 0;
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
-        WindowScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(210)) { EasingFunction = ease });
-        WindowScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(210)) { EasingFunction = ease });
+        var pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 };
+        var fade = new CubicEase { EasingMode = EasingMode.EaseOut };
+        BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)) { EasingFunction = fade });
+        WindowScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
+        WindowScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
     }
 
     private void ShowToast(string message)
@@ -296,11 +341,23 @@ public partial class MainWindow : Window
         ToastText.Text = message;
         Toast.Visibility = Visibility.Visible;
         Toast.Opacity = 0;
-        Toast.RenderTransformOrigin = new Point(0.5, 1);
-        Toast.RenderTransform = new TranslateTransform(0, 8);
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        Toast.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(170)) { EasingFunction = ease });
-        ((TranslateTransform)Toast.RenderTransform).BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(170)) { EasingFunction = ease });
+
+        // Build a fresh transform every call so animations start from a known state.
+        var translate = new TranslateTransform(0, 14);
+        var scale     = new ScaleTransform(0.92, 0.92);
+        var group     = new TransformGroup();
+        group.Children.Add(scale);
+        group.Children.Add(translate);
+        Toast.RenderTransform = group;
+
+        var pop  = new BackEase  { EasingMode = EasingMode.EaseOut, Amplitude = 0.45 };
+        var fade = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        Toast.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)) { EasingFunction = fade });
+        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
+
         _toastTimer.Stop();
         _toastTimer.Start();
     }
@@ -308,10 +365,17 @@ public partial class MainWindow : Window
     private void AnimateToastOut()
     {
         if (Toast.Visibility != Visibility.Visible) return;
-        var anim = new DoubleAnimation(0, TimeSpan.FromMilliseconds(150))
-            { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-        anim.Completed += (_, _) => Toast.Visibility = Visibility.Collapsed;
-        Toast.BeginAnimation(OpacityProperty, anim);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+        var fadeAnim = new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease };
+        fadeAnim.Completed += (_, _) => Toast.Visibility = Visibility.Collapsed;
+        Toast.BeginAnimation(OpacityProperty, fadeAnim);
+
+        if (Toast.RenderTransform is TransformGroup tg)
+        {
+            var translate = tg.Children[1] as TranslateTransform;
+            translate?.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(8, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
+        }
     }
 
     // ── Password field helpers ────────────────────────────────────────────────

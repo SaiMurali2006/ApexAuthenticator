@@ -1,3 +1,5 @@
+using ApexAuth.Services;
+
 namespace ApexAuth;
 
 public partial class App : System.Windows.Application
@@ -5,6 +7,7 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
+        ThemeService.Current.Initialize();
         var window = new MainWindow();
         window.Show();
     }

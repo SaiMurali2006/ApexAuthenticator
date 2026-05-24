@@ -1,9 +1,9 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using ApexAuth.Models;
 using ApexAuth.Services;
 
@@ -11,6 +11,9 @@ namespace ApexAuth.UI;
 
 public static class AccountCardFactory
 {
+    private static readonly CubicEase EaseOut = new() { EasingMode = EasingMode.EaseOut };
+    private static readonly BackEase  Spring  = new() { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 };
+
     public static Border Create(
         AuthAccount account,
         Action<AuthAccount> onCopy,
@@ -18,26 +21,60 @@ public static class AccountCardFactory
         Action<AuthAccount> onDelete,
         out TextBlock codeBlock)
     {
+        var restBg     = Res("CardBrush");
+        var hoverBg    = Res("CardHoverBrush");
+        var restBorder = Res("LineBrush");
+        var hoverBorder = Res("AccentSoftBrush");
+
+        var translate = new TranslateTransform(0, 6);
+        var scale     = new ScaleTransform(1, 1);
+        var transformGroup = new TransformGroup();
+        transformGroup.Children.Add(scale);
+        transformGroup.Children.Add(translate);
+
         var card = new Border
         {
             Tag = account,
-            Background = Res("CardBrush"),
-            BorderBrush = Res("LineBrush"),
+            Background = restBg,
+            BorderBrush = restBorder,
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(20),
-            Padding = new Thickness(13, 11, 13, 11),
-            Margin = new Thickness(0, 0, 0, 9),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(14, 12, 12, 12),
+            Margin = new Thickness(0, 0, 0, 8),
             Opacity = 0,
-            RenderTransform = new TranslateTransform(0, 8),
-            Effect = new DropShadowEffect
-            {
-                Color = Color.FromRgb(61, 56, 232),
-                BlurRadius = 24,
-                ShadowDepth = 0,
-                Opacity = 0.2
-            }
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            RenderTransform = transformGroup,
+            Cursor = Cursors.Hand
         };
-        card.Loaded += (_, _) => AnimateIn(card);
+        card.Loaded += (_, _) => AnimateIn(card, translate);
+        card.MouseEnter += (_, _) =>
+        {
+            card.Background = hoverBg;
+            card.BorderBrush = hoverBorder;
+            AnimateTo(translate, TranslateTransform.YProperty, -2, 180, EaseOut);
+        };
+        card.MouseLeave += (_, _) =>
+        {
+            card.Background = restBg;
+            card.BorderBrush = restBorder;
+            AnimateTo(translate, TranslateTransform.YProperty, 0, 220, EaseOut);
+        };
+        card.PreviewMouseLeftButtonDown += (_, _) =>
+        {
+            AnimateTo(scale, ScaleTransform.ScaleXProperty, 0.97, 100, EaseOut);
+            AnimateTo(scale, ScaleTransform.ScaleYProperty, 0.97, 100, EaseOut);
+        };
+        card.PreviewMouseLeftButtonUp += (_, _) =>
+        {
+            AnimateTo(scale, ScaleTransform.ScaleXProperty, 1, 220, Spring);
+            AnimateTo(scale, ScaleTransform.ScaleYProperty, 1, 220, Spring);
+        };
+        card.MouseLeftButtonUp += (_, e) =>
+        {
+            if (e.OriginalSource is DependencyObject src && IsButtonAncestor(src)) return;
+            FlashBorder(card);
+            onCopy(account);
+        };
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -47,9 +84,9 @@ public static class AccountCardFactory
         left.Children.Add(new TextBlock
         {
             Text = account.Label,
-            Foreground = Res("TextBrush"),
-            FontSize = 13,
-            FontWeight = FontWeights.ExtraBold,
+            Foreground = Res("MutedBrush"),
+            FontSize = 11,
+            FontWeight = FontWeights.Bold,
             Margin = new Thickness(0, 0, 0, 2)
         });
 
@@ -58,9 +95,10 @@ public static class AccountCardFactory
             Text = FormatCode(TotpService.GetCode(account.Secret)),
             Foreground = Res("AccentBrush"),
             FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas"),
-            FontSize = 28,
+            FontSize = 26,
             FontWeight = FontWeights.Bold,
-            Margin = new Thickness(0, 8, 0, 0)
+            Margin = new Thickness(0, 4, 0, 0),
+            RenderTransformOrigin = new Point(0, 0.5)
         };
         codeBlock = code;
         left.Children.Add(code);
@@ -71,9 +109,9 @@ public static class AccountCardFactory
             Orientation = Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Center
         };
-        actions.Children.Add(MakeButton("Copy", () => onCopy(account)));
-        actions.Children.Add(MakeButton("Edit", () => onEdit(account)));
-        actions.Children.Add(MakeButton("Del",  () => onDelete(account), danger: true));
+        actions.Children.Add(MakeIconButton("⧉",  "Copy",   () => { FlashBorder(card); onCopy(account); }));
+        actions.Children.Add(MakeIconButton("✎",  "Edit",   () => onEdit(account)));
+        actions.Children.Add(MakeIconButton("✕",  "Delete", () => onDelete(account), danger: true));
         Grid.SetColumn(actions, 1);
         grid.Children.Add(actions);
 
@@ -83,32 +121,132 @@ public static class AccountCardFactory
 
     public static string FormatCode(string code) => $"{code[..3]} {code[3..]}";
 
-    private static Button MakeButton(string text, Action handler, bool danger = false)
+    // Subtle pulse on the code text whenever a new TOTP cycle arrives.
+    public static void AnimateCodeRefresh(TextBlock code)
     {
+        var fade = new DoubleAnimationUsingKeyFrames();
+        fade.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        fade.KeyFrames.Add(new EasingDoubleKeyFrame(0.25, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120)),
+            new CubicEase { EasingMode = EasingMode.EaseOut }));
+        fade.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(360)),
+            new CubicEase { EasingMode = EasingMode.EaseIn }));
+        code.BeginAnimation(UIElement.OpacityProperty, fade);
+
+        if (code.RenderTransform is not ScaleTransform scale)
+        {
+            scale = new ScaleTransform(1, 1);
+            code.RenderTransform = scale;
+        }
+        var pulse = new DoubleAnimationUsingKeyFrames();
+        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.08, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120))));
+        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(360)),
+            new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 }));
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+    }
+
+    private static void FlashBorder(Border card)
+    {
+        var accent = (Brush)Application.Current.FindResource("AccentBrush");
+        var line   = (Brush)Application.Current.FindResource("AccentSoftBrush");
+        card.BorderBrush = accent;
+
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            card.BorderBrush = card.IsMouseOver ? line : (Brush)Application.Current.FindResource("LineBrush");
+        };
+        timer.Start();
+    }
+
+    private static Button MakeIconButton(string glyph, string tip, Action handler, bool danger = false)
+    {
+        var bg     = danger ? Res("DangerSoftBrush") : Res("ButtonBgBrush");
+        var border = danger ? Res("DangerBrush")     : Res("ButtonBorderBrush");
+        var fg     = danger ? Res("DangerBrush")     : Res("TextBrush");
+
         var btn = new Button
         {
-            Content = text,
-            Margin = new Thickness(6, 0, 0, 0),
-            Padding = new Thickness(8, 5, 8, 5),
-            Background = danger
-                ? new SolidColorBrush(Color.FromRgb(58, 22, 35))
-                : Res("AccentSoftBrush"),
-            BorderBrush = danger ? Res("DangerBrush") : Res("LineBrush"),
-            Foreground = Res("TextBrush"),
-            Style = (Style)Application.Current.FindResource("GhostButton")
+            Content = glyph,
+            ToolTip = tip,
+            Margin = new Thickness(4, 0, 0, 0),
+            Padding = new Thickness(0),
+            Width = 30,
+            Height = 30,
+            MinHeight = 30,
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Background = bg,
+            BorderBrush = border,
+            Foreground = fg,
+            Cursor = Cursors.Hand,
+            Template = IconButtonTemplate()
         };
         btn.Click += (_, _) => handler();
         return btn;
     }
 
-    private static void AnimateIn(UIElement element)
+    private static ControlTemplate IconButtonTemplate()
     {
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var tpl = new ControlTemplate(typeof(Button));
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.Name = "Chrome";
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
+        border.SetBinding(Border.BackgroundProperty,
+            new System.Windows.Data.Binding("Background") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+        border.SetBinding(Border.BorderBrushProperty,
+            new System.Windows.Data.Binding("BorderBrush") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+        border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+        border.SetValue(FrameworkElement.RenderTransformOriginProperty, new Point(0.5, 0.5));
+        var scale = new FrameworkElementFactory(typeof(ScaleTransform));
+        scale.Name = "PressScale";
+        scale.SetValue(ScaleTransform.ScaleXProperty, 1.0);
+        scale.SetValue(ScaleTransform.ScaleYProperty, 1.0);
+        border.SetValue(UIElement.RenderTransformProperty, new ScaleTransform(1, 1));
+
+        var content = new FrameworkElementFactory(typeof(ContentPresenter));
+        content.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        content.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+        content.SetBinding(System.Windows.Documents.TextElement.ForegroundProperty,
+            new System.Windows.Data.Binding("Foreground") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
+        border.AppendChild(content);
+        tpl.VisualTree = border;
+
+        var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+        hoverTrigger.Setters.Add(new Setter(UIElement.OpacityProperty, 0.82, "Chrome"));
+        tpl.Triggers.Add(hoverTrigger);
+
+        var pressedTrigger = new Trigger { Property = System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, Value = true };
+        pressedTrigger.Setters.Add(new Setter(UIElement.OpacityProperty, 0.6, "Chrome"));
+        tpl.Triggers.Add(pressedTrigger);
+        return tpl;
+    }
+
+    private static bool IsButtonAncestor(DependencyObject element)
+    {
+        var node = element;
+        while (node is not null)
+        {
+            if (node is Button) return true;
+            node = VisualTreeHelper.GetParent(node) ?? LogicalTreeHelper.GetParent(node);
+        }
+        return false;
+    }
+
+    private static void AnimateIn(UIElement element, TranslateTransform translate)
+    {
         element.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
-        if (element.RenderTransform is TranslateTransform translate)
-            translate.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(0, TimeSpan.FromMilliseconds(190)) { EasingFunction = ease });
+            new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)) { EasingFunction = EaseOut });
+        translate.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(0, TimeSpan.FromMilliseconds(260)) { EasingFunction = Spring });
+    }
+
+    private static void AnimateTo(IAnimatable target, DependencyProperty property, double to, double ms, IEasingFunction ease)
+    {
+        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms)) { EasingFunction = ease };
+        target.BeginAnimation(property, anim);
     }
 
     private static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
