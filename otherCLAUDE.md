@@ -17,7 +17,7 @@ Three rules govern everything visual:
    Three modes (`Light`, `Dark`, `System`) plus a 6-digit hex accent picker, all persisted to `%APPDATA%\<AppName>\theme.json`. System mode tracks `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme` and listens to `SystemEvents.UserPreferenceChanged`. The theme entry point is **the app's logo badge in the top-left corner** — clicking it opens a popover with segmented mode control + preset swatches + hex input.
 
 3. **Quiet by default, alive on interaction.**
-   Resting state is calm: subtle borders, no glow, no shadow noise. Hovering, pressing, copying, and refreshing all earn small spring-based animations (`BackEase`, ~180–320ms). Nothing twitches or shouts.
+   Resting state is calm: subtle borders, no glow, no shadow noise. Hovering, pressing, copying, and refreshing all earn springy animations — short `CubicEase` on press-down, then `ElasticEase EaseOut` (`Oscillations=2`, `Springiness≈2.5–4`) or `BackEase Amplitude≈1.0` on release. Bounce is the Apex signature; nothing twitches or shouts but everything settles with a tiny overshoot.
 
 ---
 
@@ -276,24 +276,32 @@ Every card has:
 - Right: three icon buttons (`30×30`, `r=10`) — Copy, Edit, Delete (danger).
 - Click anywhere outside a button → copy primary value (with border flash).
 
-Animations: AnimateIn on `Loaded` (opacity + 6px slide-up); hover lifts `-2px` and swaps border to `AccentSoftBrush`; press scales to `0.97`; copy flashes border to `AccentBrush` for `280ms`; primary value pulses (`opacity 1→0.25→1`, `scale 1→1.08→1`) when its data refreshes.
+Animations: AnimateIn on `Loaded` (opacity + 14px slide-up with `ElasticEase` bounce, 560ms); hover lifts `-3px` via `BackEase` (260ms); press scales to `0.94` then springs back via `ElasticEase` (480ms); copy flashes border to `AccentBrush` for `280ms`; primary value pulses (`opacity 1→0.25→1`, `scale 1→1.14→1`) when its data refreshes, with the return arc on `ElasticEase` (560ms total).
 
 ### 8.5 Buttons
 
-Three styles, all spring-animated on press (scale `1→0.96 EnterAction`, `→1 ExitAction` with `BackEase Amplitude=0.4`):
+Four styles. All spring-animated on press — quick scale-down on `CubicEase EaseOut` (~70–80ms), then settle to `1.0` on `ElasticEase EaseOut Oscillations=2, Springiness≈2.5–3` (~360–460ms):
 
 | Style | Background | Border | Foreground | Use |
 |---|---|---|---|---|
 | `GhostButton`         | `ButtonBgBrush`        | `ButtonBorderBrush` (hover → `AccentBrush`) | `TextBrush` | Secondary/neutral actions |
 | `PrimaryButton`       | `PrimaryButtonBgBrush` (= accent) | `PrimaryButtonBorderBrush` | `OnAccentBrush` (auto-contrast) | Single primary CTA per surface |
-| `WindowControlButton` | `ControlBgBrush`       | `ControlBorderBrush`       | `TextBrush` | Min/close + small icon actions; presses to `scale 0.9` for tactile feel |
-| Card icon button (in-line)   | `ButtonBgBrush` (or `DangerSoftBrush` for destructive) | `ButtonBorderBrush` (or `DangerBrush`) | `TextBrush` (or `DangerBrush`) | Card-row actions (Copy/Edit/Delete); presses to `scale 0.88` |
+| `WindowControlButton` | `ControlBgBrush`       | `ControlBorderBrush`       | `TextBrush` | Min/close + small icon actions; presses to `scale 0.85` for tactile feel |
+| `InlineIconButton`    | `Transparent`          | none                       | `MutedBrush` (hover → `AccentBrush`) | Chromeless in-field actions (e.g., password reveal eye). Sits *inside* an input's right-padding zone, never gets its own border or background. Presses to `scale 0.8`. |
+| Card icon button (in-line)   | `ButtonBgBrush` (or `DangerSoftBrush` for destructive) | `ButtonBorderBrush` (or `DangerBrush`) | `TextBrush` (or `DangerBrush`) | Card-row actions (Copy/Edit/Delete); presses to `scale 0.82` |
 
 All have `r=12` (or `r=10` for window/card-icon buttons), `Cursor=Hand`, hover changes `Background` (and border to accent for ghost). **Every button is keyboard-focusable with a custom `ApexFocusVisualStyle`** — a 1.5px dashed accent ring at `-3px` offset, `r=14`, opacity `0.85`. Never use WPF's default dotted black focus outline.
 
 ### 8.6 Inputs (`TextBox` / `PasswordBox`)
 
 `InputBrush` background, `LineSoftBrush` border at rest, `r=12`, `Padding=12,9`, `Bold 14pt`. On `IsKeyboardFocusWithin=True` the border swaps to `AccentBrush`. Caret + selection brushes use `AccentBrush`.
+
+**In-field action icons (e.g., the password reveal eye)** must be `InlineIconButton`-styled and live *inside* the input's right-padding zone. Rules so the icon reads as part of the field and never as a stuck-on button:
+
+- Input right-padding ≥ icon width + `~16px` clearance (`Padding="12,9,40,9"` for a 28px icon).
+- Button: no fixed Width/Height — let `InlineIconButton` provide `28×28`. Transparent background, `BorderThickness=0`, `HorizontalAlignment=Right`, `VerticalAlignment=Center`, `Margin="0,0,8,0"`.
+- Icon is a `Viewbox Width=18 Height=18` over an internal `Canvas Width=16 Height=16`. The closed-eye path is `M2,4.5 C5,9 11,9 14,4.5 …` (geometric center ≈ y=8, matching the canvas center — avoids the optical-low look the old `y=5→12` path had).
+- `Stroke` binds to the button's `Foreground` (`{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}`) so hover swaps the glyph color to accent without re-templating.
 
 ### 8.7 Dialogs
 
@@ -303,6 +311,7 @@ All extend a `DialogBase` (Window with `WindowStyle=None`, `AllowsTransparency=t
 - Two-button footer: cancel (Ghost, left) + primary (Primary, right), each `Margin=0,0,4,0` / `4,0,0,0` — `8px` total gap between them.
 - For a destructive primary (e.g., "Delete" in confirm dialogs), background switches to `DangerBrush` and foreground to `OnDangerBrush` (auto-contrasted from the danger color).
 - Drag the dialog by mousing down on the shell.
+- **Entry animation** (handled in `DialogBase`): `Opacity 0→1` (CubicEase, 180ms) + `Scale 0.86→1` on `ElasticEase EaseOut Oscillations=2 Springiness=3.5` (500ms). Origin `(0.5,0.5)`.
 
 ### 8.8 Toast
 
@@ -310,8 +319,8 @@ Bottom-center, `ToastBgBrush` background, `AccentBrush` border, `r=12`, `Padding
 
 Entry animation:
 - `Opacity 0→1` (CubicEase, 180ms)
-- `TranslateY 14→0` (BackEase, 320ms)
-- `Scale 0.92→1` (BackEase, 320ms)
+- `TranslateY 22→0` (`ElasticEase EaseOut Oscillations=2 Springiness=3.5`, 520ms)
+- `Scale 0.82→1` (same ElasticEase, 520ms)
 - Origin `(0.5, 1)` so it grows up from the bottom.
 
 Auto-hides after `1.6s` with `Opacity→0` + `TranslateY→8` (CubicEase EaseIn, 180ms).
@@ -341,24 +350,38 @@ A single centered `CardBrush` panel with:
 
 ## 9. Animations
 
-All animations use `Bold-` / `Spring-` feel — no linear ease, no overshoot longer than `260ms`.
+Apex's signature is **bouncy release**. Press-down is short and snappy on `CubicEase EaseOut`; release uses `ElasticEase EaseOut` (or high-amplitude `BackEase`) so things settle with a tiny overshoot. No linear easing, no overshoot longer than ~520ms.
 
 | Where | Easing | Duration | Effect |
 |---|---|---|---|
-| Window open                  | `BackEase EaseOut Amp=0.4`  | 320ms (scale), 220ms (opacity) | `Scale 0.92→1` + fade in |
-| Toast in                     | `BackEase EaseOut Amp=0.45` | 320ms | Translate + scale + fade |
+| Window open                  | `ElasticEase EaseOut Osc=2 Spring=4` | 520ms (scale), 220ms (opacity) | `Scale 0.86→1` + fade in |
+| Dialog open (`DialogBase`)   | `ElasticEase EaseOut Osc=2 Spring=3.5` | 500ms (scale), 180ms (opacity) | `Scale 0.86→1` + fade |
+| Toast in                     | `ElasticEase EaseOut Osc=2 Spring=3.5` | 520ms | Translate `22→0` + scale `0.82→1` + fade |
 | Toast out                    | `CubicEase EaseIn`          | 180ms | Translate + fade |
 | Popup pop                    | `BackEase EaseOut Amp=0.4`  | 260ms | Scale `0.96→1` |
-| Button press                 | `CubicEase EaseOut` (down) → `BackEase EaseOut Amp=0.4` (up) | 80ms / 160ms | `Scale 1↔0.96` (window controls: `0.9`) |
-| Card hover lift              | `CubicEase EaseOut`         | 180ms | `TranslateY 0↔-2` |
-| Card press                   | `CubicEase EaseOut` → `BackEase Amp=0.5` | 100ms / 220ms | `Scale 1↔0.97` |
-| Card icon-button press       | `CubicEase EaseOut` → `BackEase Amp=0.5` | 80ms / 180ms | `Scale 1↔0.88` |
+| Button press                 | `CubicEase EaseOut` (down) → `ElasticEase EaseOut Osc=2 Spring=3` (up) | 70ms / 360–400ms | `Scale 1↔0.9` (GhostButton/PrimaryButton); window controls: `0.85`; inline icon: `0.8` |
+| Card hover lift              | `BackEase Amp=1.1` (in) / `ElasticEase EaseOut Osc=2 Spring=3.2` (out) | 260ms / 320ms | `TranslateY 0↔-3` |
+| Card press                   | `CubicEase EaseOut` → `ElasticEase EaseOut Osc=2 Spring=3.2` | 80ms / 480ms | `Scale 1↔0.94` |
+| Card icon-button press       | `CubicEase EaseOut` → `ElasticEase EaseOut Osc=2 Spring=2.8` | 80ms / 460ms | `Scale 1↔0.82` |
 | Logo hover                   | `BackEase EaseOut Amp=0.4`  | 180ms | `Scale 1↔1.06` (the only "grow" hover in Apex) |
 | Card copy flash              | DispatcherTimer reset       | 280ms hold | Border → `AccentBrush` then back |
-| Card AnimateIn (on Loaded)   | `BackEase EaseOut Amp=0.5`  | 220–260ms | Opacity + translate up |
-| Primary value refresh pulse  | KeyFrame (CubicEase + BackEase) | 360ms total | `Opacity 1→0.25→1`, `Scale 1→1.08→1` |
+| Card AnimateIn (on Loaded)   | `ElasticEase EaseOut Osc=2 Spring=3.2` | 560ms (translate), 260ms (opacity) | Opacity + 14px translate up |
+| Primary value refresh pulse  | KeyFrame (CubicEase up + ElasticEase down) | 560ms total | `Opacity 1→0.25→1`, `Scale 1→1.14→1` |
+| Secure-session badge pulse   | `SineEase EaseInOut`, `AutoReverse=True`, `RepeatBehavior=Forever` | 1600ms half-cycle | `Opacity 1↔0.55` (lock-screen "SECURE SESSION" eyebrow) |
 
 If you add a new interactive element, animate it. Static interactive elements feel broken in Apex.
+
+### 9.1 Bounce profile cheat-sheet
+
+When picking the release easing, use this scale:
+
+| Feeling | Easing | Notes |
+|---|---|---|
+| Tight nudge (hover lifts, small spring-back) | `BackEase EaseOut Amp=0.8–1.2` | Single soft overshoot; 180–280ms |
+| Default bounce (most press releases) | `ElasticEase EaseOut Osc=2 Springiness=3` | Two visible oscillations; 360–500ms |
+| Loose bounce (cards, dialogs, toast, window) | `ElasticEase EaseOut Osc=2 Springiness=2.5–3.5` | Looser springs for larger UI; 460–560ms |
+
+`Springiness` is inverse: lower number = bouncier. Don't go below `2.0` — it gets jelly.
 
 ---
 
@@ -470,7 +493,9 @@ Suggested ApexPass-only additions, all following these rules:
 - ❌ A new font family (Inter, SF Pro, Roboto). Use the Segoe UI Variable / Cascadia Code stack.
 - ❌ `FontWeight="Normal"` or `"Light"`. Apex body text is `Bold`; hierarchy goes up from there.
 - ❌ `StaticResource` for any themed brush in XAML. Always `DynamicResource`.
-- ❌ Linear-eased animations or animations longer than `400ms`. Use `BackEase` / `CubicEase`, spring feel, 180–320ms.
+- ❌ Linear-eased animations. Use the bounce profile in §9.1 — `ElasticEase EaseOut` for release, `CubicEase` for press-down. Releases should overshoot.
+- ❌ Animations slower than ~600ms. The bouncy releases run to ~520ms; press-down stays under ~80ms.
+- ❌ An in-field action icon (eye/clear/search) rendered as a bordered button. Use `InlineIconButton` — transparent, no border, hover-tints to accent. The field's right padding is the icon's home.
 - ❌ Forgetting to subscribe to `SystemEvents.UserPreferenceChanged` — `System` mode won't follow OS theme changes.
 - ❌ Storing the master key on disk or sending the vault unencrypted anywhere. (Apex apps are security-critical; see [[feedback_apexauth_security]].)
 
@@ -483,5 +508,7 @@ Suggested ApexPass-only additions, all following these rules:
 | 2026-05-25 | Initial design language extraction from ApexAuth (post-typography + border rework). Defines palette derivation, radius scale, weight scale, animation feel, and ApexPass adaptation guide. |
 | 2026-05-25 | **Polish pass.** Progress bar reshaped to `r=6` outer / `r=5` indicator with 1px `LineSoftBrush` outline and 1px inset (height bumped to `10px` for substance). Standardized outer panel margin at `14px` everywhere; lock-card padding `22→20` (matches dialog); lock subtitle/button vertical rhythm tightened (`16/16` instead of `18/18`); confirm-password gap `10→8`. Dialog footer gap unified to `8px` total (cancel `4`, primary `4`). Destructive primary buttons now use `OnDangerBrush` for proper red-button text contrast. Logo button gets a `1.06×` `BackEase` scale on hover (only "grow" hover in Apex) + the `ApexFocusVisualStyle`. Card icon buttons (Copy/Edit/Delete) now press-animate to `scale 0.88` like the rest of the button family. Hex preview swatch in popup dropped to `LineSoftBrush` border (was the harsher `LineBrush`). Added `ApexFocusVisualStyle` — a 1.5px dashed accent ring at `-3px` offset — wired into `RoundedButtonBase`, replacing WPF's dotted black outline. Account dialog "Finish" relabelled to "Save" for verb consistency. |
 | 2026-05-25 | **Icon system + light-mode separation overhaul.** Introduced `UI/Icons.cs`: stroke-based vector icon set (`Minimize`, `Close`, `Copy`, `Edit`, `Delete`, `EmptyState`) drawn on a 16×16 canvas with `1.4–1.6px` round-cap strokes. **Replaced every Unicode glyph in the UI** — window minimize/close, account card Copy/Edit/Delete, and the password reveal eye (also redesigned, dropped its decorative glint dot). Rewrote `IconFactory` tray logo: flat solid-accent fill + thin alt-accent ring + clean "A" — matches the in-app badge instead of the old glossy gradient/glow look. Tray icon already refreshes on accent change via `TrayService.RefreshIcon()`. **Light-mode hierarchy redone**: `BgBrush` now a visible tinted wash (`0.07, 0.03`), `PanelBrush` and `CardBrush` switch to pure white so they pop against the wash. `LineSoftBrush` bumped (`0.04→0.05` dark, `0.025→0.07` light) — was invisible on white. `CardHoverBrush` light reworked to a gray tint that reads against white. Empty state gets a 56px accent-tinted badge with an `EmptyState` glyph, and its heading goes `Bold→Black`. Toast now wraps (`MaxWidth=320`, `TextAlignment=Center`) so long messages don't overflow. Popup hex-error label gets `TextWrapping=Wrap`. |
+| 2026-05-25 | **Dialog crash fix + eye realignment.** `DialogBase.AnimateIn` was setting `RenderTransform` + `Opacity=0` on the `Window` itself; combined with `AllowsTransparency=true` and `SizeToContent.Height` this crashed Edit/Export (any DialogBase subclass). Moved the entry animation to the inner shell `Border` (its own `RenderTransformOrigin=(0.5,0.5)`, scale start `0.88`). Eye icon shifted further inside the field — input right-padding `40→46`, button right margin `8→14` — so it no longer sits flush against the field's right edge. |
+| 2026-05-25 | **Bounce pass + in-field icon convention.** Switched the release-half of every press/open animation from `BackEase Amp≈0.4–0.5` to `ElasticEase EaseOut Osc=2 Springiness≈2.5–3.5` so window-in, dialog-in, toast-in, card-AnimateIn, card press/hover, button presses, and the TOTP code-refresh pulse all settle with a tactile overshoot. Larger start deltas (window/toast `Scale 0.92→0.86`/`0.82`, toast `Y 14→22`, card AnimateIn `Y 6→14`) make the bounce readable. New `DialogBase.AnimateIn()` gives every dialog the same bouncy entry. Added §9.1 bounce-profile cheat-sheet. **Password reveal eye realigned**: introduced new `InlineIconButton` style (transparent, no border, `28×28`, hover-tints `MutedBrush→AccentBrush`, press `Scale 0.8`); the eye now lives inside the input's right-padding zone instead of looking like a stuck-on bordered button. Closed-eye path rebalanced to a canvas-centered geometry (`M2,4.5 C5,9 11,9 14,4.5 …`). Input right-padding tuned `42→40` to match new icon footprint. Updated §3 philosophy + §13 anti-patterns. |
 
 > When you update ApexAuth's design system, add a line here describing the change. If a change affects ApexPass too, also bump the sibling app to match.

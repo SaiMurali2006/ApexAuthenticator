@@ -13,7 +13,7 @@
 
 ApexAuth is a lightweight, local-first TOTP authenticator for Windows. It lives in the system tray, opens into a compact desktop window, and stores every secret inside an encrypted local vault. There are no accounts, no cloud calls, and no network dependencies.
 
-The interface is built for taste: rounded surfaces, glowing accents, large readable codes, click-to-copy cards, and a customisable accent that follows your mood — or your system's theme.
+The interface is built for taste: rounded surfaces, glowing accents, large readable codes, click-to-copy cards, springy bounce on every press, and a customisable accent that follows your mood — or your system's theme.
 
 ## Highlights
 
@@ -28,6 +28,8 @@ The interface is built for taste: rounded surfaces, glowing accents, large reada
 | CRUD | Add, edit, delete, copy account codes from a refined desktop UI. |
 | Theming | Light, Dark, or Follow System — with a user-defined accent (hex or preset). |
 | Live updates | Theme changes apply instantly; even the tray icon recolours to your accent. |
+| Motion | Every press, hover, dialog open, and TOTP refresh settles with an `ElasticEase` bounce — quiet at rest, alive on interaction. |
+| Password reveal | Inline eye icon sits *inside* the password field — chromeless, hover-tints to accent. Show/hide is one click. |
 
 ## Theming
 

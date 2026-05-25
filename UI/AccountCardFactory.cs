@@ -11,8 +11,9 @@ namespace ApexAuth.UI;
 
 public static class AccountCardFactory
 {
-    private static readonly CubicEase EaseOut = new() { EasingMode = EasingMode.EaseOut };
-    private static readonly BackEase  Spring  = new() { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 };
+    private static readonly CubicEase   EaseOut = new() { EasingMode = EasingMode.EaseOut };
+    private static readonly BackEase    Spring  = new() { EasingMode = EasingMode.EaseOut, Amplitude = 1.1 };
+    private static readonly ElasticEase Bounce  = new() { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 3.2 };
 
     public static Border Create(
         AuthAccount account,
@@ -21,7 +22,7 @@ public static class AccountCardFactory
         Action<AuthAccount> onDelete,
         out TextBlock codeBlock)
     {
-        var translate = new TranslateTransform(0, 6);
+        var translate = new TranslateTransform(0, 14);
         var scale     = new ScaleTransform(1, 1);
         var transformGroup = new TransformGroup();
         transformGroup.Children.Add(scale);
@@ -46,23 +47,23 @@ public static class AccountCardFactory
         {
             card.SetResourceReference(Border.BackgroundProperty, "CardHoverBrush");
             card.SetResourceReference(Border.BorderBrushProperty, "AccentSoftBrush");
-            AnimateTo(translate, TranslateTransform.YProperty, -2, 180, EaseOut);
+            AnimateTo(translate, TranslateTransform.YProperty, -3, 260, Spring);
         };
         card.MouseLeave += (_, _) =>
         {
             card.SetResourceReference(Border.BackgroundProperty, "CardBrush");
             card.SetResourceReference(Border.BorderBrushProperty, "LineSoftBrush");
-            AnimateTo(translate, TranslateTransform.YProperty, 0, 220, EaseOut);
+            AnimateTo(translate, TranslateTransform.YProperty, 0, 320, Bounce);
         };
         card.PreviewMouseLeftButtonDown += (_, _) =>
         {
-            AnimateTo(scale, ScaleTransform.ScaleXProperty, 0.97, 100, EaseOut);
-            AnimateTo(scale, ScaleTransform.ScaleYProperty, 0.97, 100, EaseOut);
+            AnimateTo(scale, ScaleTransform.ScaleXProperty, 0.94, 80, EaseOut);
+            AnimateTo(scale, ScaleTransform.ScaleYProperty, 0.94, 80, EaseOut);
         };
         card.PreviewMouseLeftButtonUp += (_, _) =>
         {
-            AnimateTo(scale, ScaleTransform.ScaleXProperty, 1, 220, Spring);
-            AnimateTo(scale, ScaleTransform.ScaleYProperty, 1, 220, Spring);
+            AnimateTo(scale, ScaleTransform.ScaleXProperty, 1, 480, Bounce);
+            AnimateTo(scale, ScaleTransform.ScaleYProperty, 1, 480, Bounce);
         };
         card.MouseLeftButtonUp += (_, e) =>
         {
@@ -135,9 +136,9 @@ public static class AccountCardFactory
         }
         var pulse = new DoubleAnimationUsingKeyFrames();
         pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.08, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120))));
-        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(360)),
-            new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 }));
+        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.14, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120))));
+        pulse.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(560)),
+            new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 3.0 }));
         scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
         scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
     }
@@ -203,8 +204,8 @@ public static class AccountCardFactory
         tpl.Triggers.Add(hoverTrigger);
 
         var pressedTrigger = new Trigger { Property = System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, Value = true };
-        pressedTrigger.EnterActions.Add(BuildScaleStoryboard(0.88, 80, new CubicEase { EasingMode = EasingMode.EaseOut }));
-        pressedTrigger.ExitActions.Add(BuildScaleStoryboard(1.0, 180, new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 }));
+        pressedTrigger.EnterActions.Add(BuildScaleStoryboard(0.82, 80, new CubicEase { EasingMode = EasingMode.EaseOut }));
+        pressedTrigger.ExitActions.Add(BuildScaleStoryboard(1.0, 460, new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 2.8 }));
         tpl.Triggers.Add(pressedTrigger);
         return tpl;
     }
@@ -237,9 +238,9 @@ public static class AccountCardFactory
     private static void AnimateIn(UIElement element, TranslateTransform translate)
     {
         element.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)) { EasingFunction = EaseOut });
+            new DoubleAnimation(1, TimeSpan.FromMilliseconds(260)) { EasingFunction = EaseOut });
         translate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(0, TimeSpan.FromMilliseconds(260)) { EasingFunction = Spring });
+            new DoubleAnimation(0, TimeSpan.FromMilliseconds(560)) { EasingFunction = Bounce });
     }
 
     private static void AnimateTo(IAnimatable target, DependencyProperty property, double to, double ms, IEasingFunction ease)

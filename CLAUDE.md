@@ -48,7 +48,7 @@ App.xaml        Default palette + button/input styles (overridden at runtime by 
 | `Services/ThemeService.cs` | Holds the live palette, derives shades from the accent, persists `theme.json`, watches the OS theme |
 | `Services/TrayService.cs` | Owns `NotifyIcon` + `Drawing.Icon`; dispatches callbacks to WPF thread |
 | `Services/IconFactory.cs` | Builds the tray + window icons; samples the current accent color from `Application.Resources` |
-| `UI/DialogBase.cs` | Shared window chrome (border, title, accent bar, drag-move); base for all dialogs |
+| `UI/DialogBase.cs` | Shared window chrome (border, title, accent bar, drag-move) + bouncy entry animation; base for all dialogs |
 | `UI/AccountCardFactory.cs` | Builds account cards; click-to-copy on the card, hover swap, icon-button actions |
 | `UI/ThemePopup.cs` | Logo popover — Light/Dark/System segmented control, preset swatches, hex input |
 | `UI/AccountDialog.cs` | Add/edit dialog — extends `DialogBase` |
@@ -131,7 +131,8 @@ The `Token` decrypts to a JSON `VaultPayload` containing the list of `AuthAccoun
 - File-scoped namespaces (`namespace ApexAuth.X;`)
 - No dependency injection — objects created directly
 - No comments unless explaining a non-obvious crypto detail
-- WPF animations use `DoubleAnimation` with `CubicEase(EaseOut)` for consistency
+- WPF animations: short `CubicEase EaseOut` on press-down (~70–80ms), then `ElasticEase EaseOut` (`Oscillations=2`, `Springiness≈2.5–3.5`, ~360–520ms) on release so things settle with a tiny overshoot. Ambient loops (e.g., the "SECURE SESSION" pulse) use `SineEase EaseInOut` with `AutoReverse`. The full bounce-profile table lives in [otherCLAUDE.md](otherCLAUDE.md) §9 / §9.1
+- In-field action icons (password reveal eye, future search/clear) use the `InlineIconButton` style — transparent, no border, hover-tints to accent. They sit inside the input's right-padding zone; never give them their own chrome
 - Toast notifications: call `ShowToast("message")` — handles its own timer
 - All visible colors come from `ThemeService` — never hardcode hex outside `App.xaml` defaults or `ThemeService.Apply()`
 

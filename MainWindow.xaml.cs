@@ -321,7 +321,10 @@ public partial class MainWindow : Window
 
         var now = DateTimeOffset.UtcNow;
         CycleProgress.Value = TotpService.CycleProgress(now) * 100;
-        CycleText.Text      = $"{TotpService.SecondsRemaining(now)} seconds until refresh";
+        var remaining = TotpService.SecondsRemaining(now);
+        CycleText.Text = $"{remaining} seconds until refresh";
+        CycleText.SetResourceReference(TextBlock.ForegroundProperty,
+            remaining <= 5 ? "DangerBrush" : "MutedBrush");
 
         var counter = now.ToUnixTimeSeconds() / 30;
         if (counter == _lastTotpCounter) return;
@@ -500,13 +503,13 @@ public partial class MainWindow : Window
 
     private void AnimateWindowIn()
     {
-        WindowScale.ScaleX = WindowScale.ScaleY = 0.92;
+        WindowScale.ScaleX = WindowScale.ScaleY = 0.86;
         Opacity = 0;
-        var pop = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.4 };
+        var pop = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 4 };
         var fade = new CubicEase { EasingMode = EasingMode.EaseOut };
         BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)) { EasingFunction = fade });
-        WindowScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
-        WindowScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
+        WindowScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(520)) { EasingFunction = pop });
+        WindowScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(520)) { EasingFunction = pop });
     }
 
     private void ShowToast(string message)
@@ -515,21 +518,20 @@ public partial class MainWindow : Window
         Toast.Visibility = Visibility.Visible;
         Toast.Opacity = 0;
 
-        // Build a fresh transform every call so animations start from a known state.
-        var translate = new TranslateTransform(0, 14);
-        var scale     = new ScaleTransform(0.92, 0.92);
+        var translate = new TranslateTransform(0, 22);
+        var scale     = new ScaleTransform(0.82, 0.82);
         var group     = new TransformGroup();
         group.Children.Add(scale);
         group.Children.Add(translate);
         Toast.RenderTransform = group;
 
-        var pop  = new BackEase  { EasingMode = EasingMode.EaseOut, Amplitude = 0.45 };
-        var fade = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var pop  = new ElasticEase { EasingMode = EasingMode.EaseOut, Oscillations = 2, Springiness = 3.5 };
+        var fade = new CubicEase   { EasingMode = EasingMode.EaseOut };
 
         Toast.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)) { EasingFunction = fade });
-        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(320)) { EasingFunction = pop });
+        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(520)) { EasingFunction = pop });
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(520)) { EasingFunction = pop });
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(520)) { EasingFunction = pop });
 
         _toastTimer.Stop();
         _toastTimer.Start();

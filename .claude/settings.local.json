@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E '\\\\.\\(csproj|sln\\)$')"
+      "Bash(grep -E '\\\\.\\(csproj|sln\\)$')",
+      "Bash(dotnet build *)"
     ]
   }
 }

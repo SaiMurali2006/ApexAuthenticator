@@ -142,24 +142,26 @@
             </StackPanel>
           </Grid>
 
-          <Border Grid.Row="1" Margin="0,12,0,0" Padding="4"
-                  Background="{DynamicResource InputBrush}"
-                  BorderThickness="0"
-                  CornerRadius="12">
-            <Grid>
+          <Grid Grid.Row="1" Margin="0,12,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Height="1" Background="{DynamicResource LineSoftBrush}" Margin="0,0,0,10"/>
+            <Grid Grid.Row="1">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <Button x:Name="ImportButton" Content="Import"
-                      Style="{DynamicResource GhostButton}" Margin="0,0,3,0" Click="ImportButton_Click"/>
+                      Style="{DynamicResource GhostButton}" Margin="0,0,4,0" Click="ImportButton_Click"/>
               <Button x:Name="ExportButton" Grid.Column="1" Content="Export"
-                      Style="{DynamicResource GhostButton}" Margin="3,0,3,0" Click="ExportButton_Click"/>
+                      Style="{DynamicResource GhostButton}" Margin="4,0,4,0" Click="ExportButton_Click"/>
               <Button x:Name="LockButton" Grid.Column="2" Content="Lock"
-                      Style="{DynamicResource GhostButton}" Margin="3,0,0,0" Click="LockButton_Click"/>
+                      Style="{DynamicResource GhostButton}" Margin="4,0,0,0" Click="LockButton_Click"/>
             </Grid>
-          </Border>
+          </Grid>
         </Grid>
       </Border>
 
@@ -169,8 +171,22 @@
                 BorderBrush="{DynamicResource LineSoftBrush}" BorderThickness="1"
                 CornerRadius="14" Padding="20" VerticalAlignment="Center">
           <StackPanel>
-            <Border HorizontalAlignment="Left" CornerRadius="8" Padding="9,4"
+            <Border x:Name="SecureBadge" HorizontalAlignment="Left" CornerRadius="8" Padding="9,4"
                     Background="{DynamicResource AccentSoftBrush}">
+              <Border.Triggers>
+                <EventTrigger RoutedEvent="Border.Loaded">
+                  <BeginStoryboard>
+                    <Storyboard RepeatBehavior="Forever">
+                      <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                       From="1.0" To="0.55" Duration="0:0:1.6" AutoReverse="True">
+                        <DoubleAnimation.EasingFunction>
+                          <SineEase EasingMode="EaseInOut"/>
+                        </DoubleAnimation.EasingFunction>
+                      </DoubleAnimation>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </Border.Triggers>
               <TextBlock Text="SECURE SESSION" Foreground="{DynamicResource AccentBrush}"
                          FontSize="10" FontWeight="ExtraBold"/>
             </Border>
@@ -181,25 +197,28 @@
                        Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
                        FontSize="13" FontWeight="Bold" Margin="0,8,0,16"/>
             <Grid>
-              <PasswordBox x:Name="MasterPasswordBox" Padding="12,9,42,9"
+              <PasswordBox x:Name="MasterPasswordBox" Padding="12,9,46,9"
                            KeyDown="MasterPasswordBox_KeyDown" PasswordChanged="PasswordBox_PasswordChanged"/>
-              <TextBox x:Name="MasterPasswordTextBox" Padding="12,9,42,9" Visibility="Collapsed"
+              <TextBox x:Name="MasterPasswordTextBox" Padding="12,9,46,9" Visibility="Collapsed"
                        TextChanged="PasswordTextBox_TextChanged" KeyDown="MasterPasswordBox_KeyDown"/>
-              <Button x:Name="MasterRevealButton" Width="30" Height="30" Padding="0"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
-                      Style="{DynamicResource WindowControlButton}" Click="MasterRevealButton_Click">
-                <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+              <Button x:Name="MasterRevealButton"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"
+                      Style="{DynamicResource InlineIconButton}" Click="MasterRevealButton_Click">
+                <Viewbox Width="18" Height="18" IsHitTestVisible="False">
                   <Canvas Width="16" Height="16">
                     <Path x:Name="MasterEyeClosed"
-                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.5"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M2,5 C5,9.5 11,9.5 14,5 M3.5,8 L2,10 M8,10 L8,12 M12.5,8 L14,10"/>
+                          Data="M2,4.5 C5,9 11,9 14,4.5 M3.5,7.5 L2,9.5 M8,9.5 L8,11.5 M12.5,7.5 L14,9.5"/>
                     <Path x:Name="MasterEyeOpen" Visibility="Collapsed"
-                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.5"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                           Data="M1.5,8 C4,4 6,3 8,3 C10,3 12,4 14.5,8 C12,12 10,13 8,13 C6,13 4,12 1.5,8 Z"/>
                     <Ellipse x:Name="MasterEyePupil" Visibility="Collapsed"
-                             Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                             Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                             StrokeThickness="1.5"
                              Width="3.6" Height="3.6"
                              Canvas.Left="6.2" Canvas.Top="6.2"/>
                   </Canvas>
@@ -207,24 +226,27 @@
               </Button>
             </Grid>
             <Grid x:Name="ConfirmPasswordGrid" Visibility="Collapsed" Margin="0,8,0,0">
-              <PasswordBox x:Name="ConfirmPasswordBox" Padding="12,9,42,9" PasswordChanged="PasswordBox_PasswordChanged"/>
-              <TextBox x:Name="ConfirmPasswordTextBox" Padding="12,9,42,9" Visibility="Collapsed"
+              <PasswordBox x:Name="ConfirmPasswordBox" Padding="12,9,46,9" PasswordChanged="PasswordBox_PasswordChanged"/>
+              <TextBox x:Name="ConfirmPasswordTextBox" Padding="12,9,46,9" Visibility="Collapsed"
                        TextChanged="PasswordTextBox_TextChanged"/>
-              <Button x:Name="ConfirmRevealButton" Width="30" Height="30" Padding="0"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
-                      Style="{DynamicResource WindowControlButton}" Click="ConfirmRevealButton_Click">
-                <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+              <Button x:Name="ConfirmRevealButton"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"
+                      Style="{DynamicResource InlineIconButton}" Click="ConfirmRevealButton_Click">
+                <Viewbox Width="18" Height="18" IsHitTestVisible="False">
                   <Canvas Width="16" Height="16">
                     <Path x:Name="ConfirmEyeClosed"
-                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.5"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M2,5 C5,9.5 11,9.5 14,5 M3.5,8 L2,10 M8,10 L8,12 M12.5,8 L14,10"/>
+                          Data="M2,4.5 C5,9 11,9 14,4.5 M3.5,7.5 L2,9.5 M8,9.5 L8,11.5 M12.5,7.5 L14,9.5"/>
                     <Path x:Name="ConfirmEyeOpen" Visibility="Collapsed"
-                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.5"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                           Data="M1.5,8 C4,4 6,3 8,3 C10,3 12,4 14.5,8 C12,12 10,13 8,13 C6,13 4,12 1.5,8 Z"/>
                     <Ellipse x:Name="ConfirmEyePupil" Visibility="Collapsed"
-                             Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                             Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                             StrokeThickness="1.5"
                              Width="3.6" Height="3.6"
                              Canvas.Left="6.2" Canvas.Top="6.2"/>
                   </Canvas>
