@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ApexAuth.Models;
 using ApexAuth.Services;
+using static ApexAuth.UI.ResourceHelpers;
 
 namespace ApexAuth.UI;
 
@@ -249,5 +250,4 @@ public static class AccountCardFactory
         target.BeginAnimation(property, anim);
     }
 
-    private static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
 }

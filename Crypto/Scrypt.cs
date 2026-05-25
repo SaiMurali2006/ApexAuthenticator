@@ -16,14 +16,23 @@ public static class Scrypt
         var b = Pbkdf2(passBytes, salt, p * 128 * r);
         var block = new byte[128 * r];
 
-        for (var i = 0; i < p; i++)
+        try
         {
-            Buffer.BlockCopy(b, i * block.Length, block, 0, block.Length);
-            Smix(block, r, n);
-            Buffer.BlockCopy(block, 0, b, i * block.Length, block.Length);
-        }
+            for (var i = 0; i < p; i++)
+            {
+                Buffer.BlockCopy(b, i * block.Length, block, 0, block.Length);
+                Smix(block, r, n);
+                Buffer.BlockCopy(block, 0, b, i * block.Length, block.Length);
+            }
 
-        return Pbkdf2(passBytes, b, dkLen);
+            return Pbkdf2(passBytes, b, dkLen);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(passBytes);
+            CryptographicOperations.ZeroMemory(b);
+            CryptographicOperations.ZeroMemory(block);
+        }
     }
 
     private static byte[] Pbkdf2(byte[] password, byte[] salt, int length)

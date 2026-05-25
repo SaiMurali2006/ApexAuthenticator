@@ -8,23 +8,24 @@ namespace ApexAuth.Services;
 public sealed class TrayService : IDisposable
 {
     private readonly Forms.NotifyIcon _notify;
+    private readonly Forms.ContextMenuStrip _menu;
     private Drawing.Icon _icon;
 
     public TrayService(Action onShow, Action onLock, Action onExit)
     {
         _icon = IconFactory.CreateTrayIcon();
 
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open ApexAuth", null, (_, _) => Dispatch(onShow));
-        menu.Items.Add("Lock",          null, (_, _) => Dispatch(onLock));
-        menu.Items.Add("Exit",          null, (_, _) => Dispatch(onExit));
+        _menu = new Forms.ContextMenuStrip();
+        _menu.Items.Add("Open ApexAuth", null, (_, _) => Dispatch(onShow));
+        _menu.Items.Add("Lock",          null, (_, _) => Dispatch(onLock));
+        _menu.Items.Add("Exit",          null, (_, _) => Dispatch(onExit));
 
         _notify = new Forms.NotifyIcon
         {
             Text = "ApexAuth",
             Icon = _icon,
             Visible = true,
-            ContextMenuStrip = menu
+            ContextMenuStrip = _menu
         };
         _notify.DoubleClick += (_, _) => Dispatch(onShow);
     }
@@ -41,6 +42,7 @@ public sealed class TrayService : IDisposable
     {
         _notify.Visible = false;
         _notify.Dispose();
+        _menu.Dispose();
         _icon.Dispose();
     }
 

@@ -267,7 +267,7 @@ public sealed class ThemeService
             : Color.FromRgb(0xFF, 0xFF, 0xFF);
     }
 
-    private static Color Lighten(Color c, double amount)
+    internal static Color Lighten(Color c, double amount)
     {
         amount = Math.Clamp(amount, 0.0, 1.0);
         return Color.FromRgb(

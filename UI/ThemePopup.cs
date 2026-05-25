@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ApexAuth.Services;
+using static ApexAuth.UI.ResourceHelpers;
 
 namespace ApexAuth.UI;
 
@@ -266,8 +267,6 @@ public sealed class ThemePopup
         };
         return btn;
     }
-
-    private static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
 
     private static TextBlock SectionLabel(string text) => new()
     {

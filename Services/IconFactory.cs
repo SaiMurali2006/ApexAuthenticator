@@ -61,8 +61,8 @@ public static class IconFactory
         graphics.Clear(Drawing.Color.Transparent);
 
         var scale     = size / 64f;
-        var altAccent = Lighten(accent, 0.20);
-        var onAccent  = ContrastText(accent);
+        var altAccent = ThemeService.Lighten(accent, 0.20);
+        var onAccent  = ThemeService.ContrastText(accent);
 
         // Body: solid accent rounded square. 5px outer margin on a 64px canvas.
         var body       = ScaleRect(5, 5, 54, 54, scale);
@@ -102,19 +102,6 @@ public static class IconFactory
 
     private static Drawing.Color ToGdi(Color c) =>
         Drawing.Color.FromArgb(255, c.R, c.G, c.B);
-
-    private static Color Lighten(Color c, double amount) => Color.FromRgb(
-        (byte)(c.R + (255 - c.R) * amount),
-        (byte)(c.G + (255 - c.G) * amount),
-        (byte)(c.B + (255 - c.B) * amount));
-
-    private static Color ContrastText(Color bg)
-    {
-        var luminance = bg.R * 0.299 + bg.G * 0.587 + bg.B * 0.114;
-        return luminance >= 150
-            ? Color.FromRgb(0x10, 0x11, 0x1A)
-            : Color.FromRgb(0xFF, 0xFF, 0xFF);
-    }
 
     private static Drawing.Rectangle ScaleRect(int x, int y, int width, int height, float scale) =>
         new(
