@@ -298,8 +298,8 @@ All have `r=12` (or `r=10` for window/card-icon buttons), `Cursor=Hand`, hover c
 
 **In-field action icons (e.g., the password reveal eye)** must be `InlineIconButton`-styled and live *inside* the input's right-padding zone. Rules so the icon reads as part of the field and never as a stuck-on button:
 
-- Input right-padding ≥ icon width + `~16px` clearance (`Padding="12,9,40,9"` for a 28px icon).
-- Button: no fixed Width/Height — let `InlineIconButton` provide `28×28`. Transparent background, `BorderThickness=0`, `HorizontalAlignment=Right`, `VerticalAlignment=Center`, `Margin="0,0,8,0"`.
+- Input right-padding ≥ icon width + `~24px` clearance (`Padding="12,9,52,9"` for a 28px icon) so the eye sits comfortably *inside* the field instead of hugging its right edge.
+- Button: no fixed Width/Height — let `InlineIconButton` provide `28×28`. Transparent background, `BorderThickness=0`, `HorizontalAlignment=Right`, `VerticalAlignment=Center`, `Margin="0,0,20,0"`. The `20px` right margin mirrors the field's `12px` left padding (the optical center of the glyph lands at roughly the same inset from the right as the first password character sits from the left).
 - Icon is a `Viewbox Width=18 Height=18` over an internal `Canvas Width=16 Height=16`. The closed-eye path is `M2,4.5 C5,9 11,9 14,4.5 …` (geometric center ≈ y=8, matching the canvas center — avoids the optical-low look the old `y=5→12` path had).
 - `Stroke` binds to the button's `Foreground` (`{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}`) so hover swaps the glyph color to accent without re-templating.
 
@@ -338,7 +338,20 @@ Contents (in order):
 
 Shell: `PanelBrush` bg, `LineBrush` border, `r=14`, `Padding=14`, width `286`, `DropShadow(BlurRadius=26, Black, Opacity=0.35)`.
 
-### 8.10 Lock/empty-state
+### 8.10 Scrollbars
+
+Slim, themed, accent-aware. Replaces the default Windows scrollbar so long account lists feel native to the app.
+
+- **Width / height:** `10px` (vertical width, horizontal height).
+- **Track:** transparent. No arrow buttons (`RepeatButton` templates collapsed to an empty `Border`). Disables WPF's default chrome via `OverridesDefaultStyle="True"`.
+- **Thumb:** `LineBrush` background at `Opacity=0.75`, `CornerRadius=4`, inset by `Margin=2` so it feels detached from the edge.
+- **Hover:** thumb tints to `AccentBrush` at `Opacity=0.9`.
+- **Dragging:** thumb tints to `AccentAltBrush` at `Opacity=1`.
+- **Container pattern:** the `ScrollViewer` should reserve right-side padding (`Padding="0,0,6,0"`) and trim its outer right margin (`Margin="14,10,8,14"`) so cards never touch the bar. `HorizontalScrollBarVisibility="Disabled"`.
+
+Defined in `App.xaml` as the default `ScrollBar` style — applies app-wide.
+
+### 8.11 Lock/empty-state
 
 A single centered `CardBrush` panel with:
 - `AccentSoftBrush` eyebrow pill (`r=8`, `Padding=9,4`) with `ExtraBold 10pt` accent-colored uppercase label (e.g., "SECURE SESSION").
@@ -508,7 +521,10 @@ Suggested ApexPass-only additions, all following these rules:
 | 2026-05-25 | Initial design language extraction from ApexAuth (post-typography + border rework). Defines palette derivation, radius scale, weight scale, animation feel, and ApexPass adaptation guide. |
 | 2026-05-25 | **Polish pass.** Progress bar reshaped to `r=6` outer / `r=5` indicator with 1px `LineSoftBrush` outline and 1px inset (height bumped to `10px` for substance). Standardized outer panel margin at `14px` everywhere; lock-card padding `22→20` (matches dialog); lock subtitle/button vertical rhythm tightened (`16/16` instead of `18/18`); confirm-password gap `10→8`. Dialog footer gap unified to `8px` total (cancel `4`, primary `4`). Destructive primary buttons now use `OnDangerBrush` for proper red-button text contrast. Logo button gets a `1.06×` `BackEase` scale on hover (only "grow" hover in Apex) + the `ApexFocusVisualStyle`. Card icon buttons (Copy/Edit/Delete) now press-animate to `scale 0.88` like the rest of the button family. Hex preview swatch in popup dropped to `LineSoftBrush` border (was the harsher `LineBrush`). Added `ApexFocusVisualStyle` — a 1.5px dashed accent ring at `-3px` offset — wired into `RoundedButtonBase`, replacing WPF's dotted black outline. Account dialog "Finish" relabelled to "Save" for verb consistency. |
 | 2026-05-25 | **Icon system + light-mode separation overhaul.** Introduced `UI/Icons.cs`: stroke-based vector icon set (`Minimize`, `Close`, `Copy`, `Edit`, `Delete`, `EmptyState`) drawn on a 16×16 canvas with `1.4–1.6px` round-cap strokes. **Replaced every Unicode glyph in the UI** — window minimize/close, account card Copy/Edit/Delete, and the password reveal eye (also redesigned, dropped its decorative glint dot). Rewrote `IconFactory` tray logo: flat solid-accent fill + thin alt-accent ring + clean "A" — matches the in-app badge instead of the old glossy gradient/glow look. Tray icon already refreshes on accent change via `TrayService.RefreshIcon()`. **Light-mode hierarchy redone**: `BgBrush` now a visible tinted wash (`0.07, 0.03`), `PanelBrush` and `CardBrush` switch to pure white so they pop against the wash. `LineSoftBrush` bumped (`0.04→0.05` dark, `0.025→0.07` light) — was invisible on white. `CardHoverBrush` light reworked to a gray tint that reads against white. Empty state gets a 56px accent-tinted badge with an `EmptyState` glyph, and its heading goes `Bold→Black`. Toast now wraps (`MaxWidth=320`, `TextAlignment=Center`) so long messages don't overflow. Popup hex-error label gets `TextWrapping=Wrap`. |
+| 2026-05-25 | **Eye horizontal mirror.** Eye pushed further inside the field — input right-padding `46→52`, button right-margin `14→20` — so glyph's right inset from the field edge mirrors the password text's `12px` left padding. Updated §8.6 in-field icon rules. |
 | 2026-05-25 | **Dialog crash fix + eye realignment.** `DialogBase.AnimateIn` was setting `RenderTransform` + `Opacity=0` on the `Window` itself; combined with `AllowsTransparency=true` and `SizeToContent.Height` this crashed Edit/Export (any DialogBase subclass). Moved the entry animation to the inner shell `Border` (its own `RenderTransformOrigin=(0.5,0.5)`, scale start `0.88`). Eye icon shifted further inside the field — input right-padding `40→46`, button right margin `8→14` — so it no longer sits flush against the field's right edge. |
 | 2026-05-25 | **Bounce pass + in-field icon convention.** Switched the release-half of every press/open animation from `BackEase Amp≈0.4–0.5` to `ElasticEase EaseOut Osc=2 Springiness≈2.5–3.5` so window-in, dialog-in, toast-in, card-AnimateIn, card press/hover, button presses, and the TOTP code-refresh pulse all settle with a tactile overshoot. Larger start deltas (window/toast `Scale 0.92→0.86`/`0.82`, toast `Y 14→22`, card AnimateIn `Y 6→14`) make the bounce readable. New `DialogBase.AnimateIn()` gives every dialog the same bouncy entry. Added §9.1 bounce-profile cheat-sheet. **Password reveal eye realigned**: introduced new `InlineIconButton` style (transparent, no border, `28×28`, hover-tints `MutedBrush→AccentBrush`, press `Scale 0.8`); the eye now lives inside the input's right-padding zone instead of looking like a stuck-on bordered button. Closed-eye path rebalanced to a canvas-centered geometry (`M2,4.5 C5,9 11,9 14,4.5 …`). Input right-padding tuned `42→40` to match new icon footprint. Updated §3 philosophy + §13 anti-patterns. |
+
+| 2026-05-25 | **Themed scrollbar.** Replaced WPF default `ScrollBar` with a slim 10px accent-aware style (`OverridesDefaultStyle=True`). Transparent track, no arrow chrome; thumb renders as `LineBrush` at `Opacity=0.75` with `r=4` inset by `Margin=2`. Hover tints thumb to `AccentBrush` (`Opacity=0.9`); dragging tints to `AccentAltBrush` (`Opacity=1`). Accounts `ScrollViewer` margin/padding retuned (`14,10,8,14` + inner `0,0,6,0`) so cards never collide with the bar. New §8.10. |
 
 > When you update ApexAuth's design system, add a line here describing the change. If a change affects ApexPass too, also bump the sibling app to match.

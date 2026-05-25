@@ -132,7 +132,7 @@ The `Token` decrypts to a JSON `VaultPayload` containing the list of `AuthAccoun
 - No dependency injection — objects created directly
 - No comments unless explaining a non-obvious crypto detail
 - WPF animations: short `CubicEase EaseOut` on press-down (~70–80ms), then `ElasticEase EaseOut` (`Oscillations=2`, `Springiness≈2.5–3.5`, ~360–520ms) on release so things settle with a tiny overshoot. Ambient loops (e.g., the "SECURE SESSION" pulse) use `SineEase EaseInOut` with `AutoReverse`. The full bounce-profile table lives in [otherCLAUDE.md](otherCLAUDE.md) §9 / §9.1
-- In-field action icons (password reveal eye, future search/clear) use the `InlineIconButton` style — transparent, no border, hover-tints to accent. They sit inside the input's right-padding zone; never give them their own chrome
+- In-field action icons (password reveal eye, future search/clear) use the `InlineIconButton` style — transparent, no border, hover-tints to accent. They sit inside the input's right-padding zone, mirrored: right-margin matches the input's left-padding (e.g., `Padding="12,9,52,9"` + button `Margin="0,0,20,0"`). Never give them their own chrome
 - Toast notifications: call `ShowToast("message")` — handles its own timer
 - All visible colors come from `ThemeService` — never hardcode hex outside `App.xaml` defaults or `ThemeService.Apply()`
 

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(grep -E '\\\\.\\(csproj|sln\\)$')",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\apexl\\\\OneDrive\\\\Documents\\\\Local_Authenticator\" -Recurse -Include \"*.cs\", \"*.xaml\")",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

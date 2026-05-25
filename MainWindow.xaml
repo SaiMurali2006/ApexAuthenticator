@@ -155,11 +155,14 @@
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
               <Button x:Name="ImportButton" Content="Import"
-                      Style="{DynamicResource GhostButton}" Margin="0,0,4,0" Click="ImportButton_Click"/>
+                      Style="{DynamicResource GhostButton}" Margin="0,0,4,0" Click="ImportButton_Click"
+                      IsEnabled="{Binding IsVisible, ElementName=VaultPanel}"/>
               <Button x:Name="ExportButton" Grid.Column="1" Content="Export"
-                      Style="{DynamicResource GhostButton}" Margin="4,0,4,0" Click="ExportButton_Click"/>
+                      Style="{DynamicResource GhostButton}" Margin="4,0,4,0" Click="ExportButton_Click"
+                      IsEnabled="{Binding IsVisible, ElementName=VaultPanel}"/>
               <Button x:Name="LockButton" Grid.Column="2" Content="Lock"
-                      Style="{DynamicResource GhostButton}" Margin="4,0,0,0" Click="LockButton_Click"/>
+                      Style="{DynamicResource GhostButton}" Margin="4,0,0,0" Click="LockButton_Click"
+                      IsEnabled="{Binding IsVisible, ElementName=VaultPanel}"/>
             </Grid>
           </Grid>
         </Grid>
@@ -197,12 +200,12 @@
                        Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap"
                        FontSize="13" FontWeight="Bold" Margin="0,8,0,16"/>
             <Grid>
-              <PasswordBox x:Name="MasterPasswordBox" Padding="12,9,46,9"
+              <PasswordBox x:Name="MasterPasswordBox" Padding="12,9,52,9"
                            KeyDown="MasterPasswordBox_KeyDown" PasswordChanged="PasswordBox_PasswordChanged"/>
-              <TextBox x:Name="MasterPasswordTextBox" Padding="12,9,46,9" Visibility="Collapsed"
+              <TextBox x:Name="MasterPasswordTextBox" Padding="12,9,52,9" Visibility="Collapsed"
                        TextChanged="PasswordTextBox_TextChanged" KeyDown="MasterPasswordBox_KeyDown"/>
               <Button x:Name="MasterRevealButton"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0"
                       Style="{DynamicResource InlineIconButton}" Click="MasterRevealButton_Click">
                 <Viewbox Width="18" Height="18" IsHitTestVisible="False">
                   <Canvas Width="16" Height="16">
@@ -226,11 +229,11 @@
               </Button>
             </Grid>
             <Grid x:Name="ConfirmPasswordGrid" Visibility="Collapsed" Margin="0,8,0,0">
-              <PasswordBox x:Name="ConfirmPasswordBox" Padding="12,9,46,9" PasswordChanged="PasswordBox_PasswordChanged"/>
-              <TextBox x:Name="ConfirmPasswordTextBox" Padding="12,9,46,9" Visibility="Collapsed"
+              <PasswordBox x:Name="ConfirmPasswordBox" Padding="12,9,52,9" PasswordChanged="PasswordBox_PasswordChanged"/>
+              <TextBox x:Name="ConfirmPasswordTextBox" Padding="12,9,52,9" Visibility="Collapsed"
                        TextChanged="PasswordTextBox_TextChanged"/>
               <Button x:Name="ConfirmRevealButton"
-                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0"
+                      HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0"
                       Style="{DynamicResource InlineIconButton}" Click="ConfirmRevealButton_Click">
                 <Viewbox Width="18" Height="18" IsHitTestVisible="False">
                   <Canvas Width="16" Height="16">
@@ -289,7 +292,9 @@
           </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="1" Margin="14,10,14,14" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" Margin="14,10,8,14" Padding="0,0,6,0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="AccountsPanel"/>
         </ScrollViewer>
       </Grid>

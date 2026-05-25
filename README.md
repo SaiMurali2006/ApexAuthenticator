@@ -29,7 +29,7 @@ The interface is built for taste: rounded surfaces, glowing accents, large reada
 | Theming | Light, Dark, or Follow System — with a user-defined accent (hex or preset). |
 | Live updates | Theme changes apply instantly; even the tray icon recolours to your accent. |
 | Motion | Every press, hover, dialog open, and TOTP refresh settles with an `ElasticEase` bounce — quiet at rest, alive on interaction. |
-| Password reveal | Inline eye icon sits *inside* the password field — chromeless, hover-tints to accent. Show/hide is one click. |
+| Password reveal | Inline eye icon sits *inside* the password field, mirrored against the text's left padding — chromeless, hover-tints to accent. Show/hide is one click. |
 
 ## Theming
 
