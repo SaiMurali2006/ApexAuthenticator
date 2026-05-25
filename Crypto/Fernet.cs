@@ -41,7 +41,7 @@ public static class Fernet
         return Base64UrlEncode(token);
     }
 
-    public static byte[] Decrypt(byte[] key, string token)
+    public static byte[] Decrypt(byte[] key, string token, TimeSpan? maxAge = null)
     {
         if (key.Length != 32) throw new ArgumentException("Fernet key must be 32 bytes.");
 
@@ -62,6 +62,14 @@ public static class Fernet
                 throw new CryptographicException("Invalid password or corrupted vault.");
         }
 
+        if (maxAge.HasValue)
+        {
+            var timestamp = ReadBigEndian(raw.AsSpan(1, 8));
+            var age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timestamp;
+            if (age < -60 || age > (long)maxAge.Value.TotalSeconds)
+                throw new CryptographicException("Vault token is outside the accepted time window.");
+        }
+
         var iv = raw.AsSpan(9, 16).ToArray();
         var ciphertext = raw.AsSpan(25, bodyLength - 25).ToArray();
         using var aes = Aes.Create();
@@ -71,6 +79,14 @@ public static class Fernet
         aes.Padding = PaddingMode.PKCS7;
         using var decryptor = aes.CreateDecryptor();
         return decryptor.TransformFinalBlock(ciphertext, 0, ciphertext.Length);
+    }
+
+    private static long ReadBigEndian(ReadOnlySpan<byte> source)
+    {
+        long value = 0;
+        for (var i = 0; i < 8; i++)
+            value = (value << 8) | source[i];
+        return value;
     }
 
     private static void WriteBigEndian(long value, Span<byte> target)

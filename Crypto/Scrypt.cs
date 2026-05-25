@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System;
@@ -34,24 +35,32 @@ public static class Scrypt
     private static void Smix(byte[] b, int r, int n)
     {
         var x = (byte[])b.Clone();
-        var v = new byte[n * b.Length];
+        var vSize = n * b.Length;
+        var v = ArrayPool<byte>.Shared.Rent(vSize);
 
-        for (var i = 0; i < n; i++)
+        try
         {
-            Buffer.BlockCopy(x, 0, v, i * b.Length, b.Length);
-            BlockMix(x, r);
-        }
+            for (var i = 0; i < n; i++)
+            {
+                Buffer.BlockCopy(x, 0, v, i * b.Length, b.Length);
+                BlockMix(x, r);
+            }
 
-        for (var i = 0; i < n; i++)
+            for (var i = 0; i < n; i++)
+            {
+                var j = Integerify(x, r) & (ulong)(n - 1);
+                XorBlock(x, 0, v, (int)j * b.Length, b.Length);
+                BlockMix(x, r);
+            }
+
+            Buffer.BlockCopy(x, 0, b, 0, b.Length);
+        }
+        finally
         {
-            var j = Integerify(x, r) & (ulong)(n - 1);
-            XorBlock(x, 0, v, (int)j * b.Length, b.Length);
-            BlockMix(x, r);
+            CryptographicOperations.ZeroMemory(x);
+            CryptographicOperations.ZeroMemory(v.AsSpan(0, vSize));
+            ArrayPool<byte>.Shared.Return(v);
         }
-
-        Buffer.BlockCopy(x, 0, b, 0, b.Length);
-        CryptographicOperations.ZeroMemory(x);
-        CryptographicOperations.ZeroMemory(v);
     }
 
     private static ulong Integerify(byte[] b, int r)

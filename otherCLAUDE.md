@@ -84,21 +84,21 @@ Where:
 
 | Token | Dark `Surface(a, l)` | Light `Surface(a, l)` | Purpose |
 |---|---|---|---|
-| `BgBrush`              | `0.03, 0.00` | `0.03, 0.00` | Window background |
-| `BgAltBrush`           | `0.02, 0.00` | `0.02, 0.00` | Outer/alt surface |
-| `PanelBrush`           | `0.05, 0.03` | `0.05, 0.00` | Header, vault control, dialog shell, toast |
-| `CardBrush`            | `0.04, 0.04` | `0.04, 0.00` | Cards at rest |
-| `CardHoverBrush`       | `0.08, 0.08` | `0.08, 0.04` | Card hover state |
-| `InputBrush`           | `0.03, 0.00` | `0.03, 0.02` | TextBox/PasswordBox interior |
-| `ButtonBgBrush`        | `0.04, 0.05` | `0.04, 0.02` | Ghost button chrome |
-| `ButtonBorderBrush`    | `0.08, 0.10` | `0.08, 0.07` | Ghost button border |
-| `ButtonHoverBgBrush`   | `0.10, 0.10` | `0.10, 0.06` | Ghost button hover |
-| `ControlBgBrush`       | `0.05, 0.06` | `0.05, 0.03` | Window-control + small icon-button chrome |
-| `ControlBorderBrush`   | `0.08, 0.10` | `0.08, 0.07` | Same border |
-| `LineBrush`            | `0.08, 0.08` | `0.08, 0.06` | Main definition border (window outer, dialog shell) |
-| `LineSoftBrush`        | `0.04, 0.04` | `0.04, 0.025` | Subtle separator (nested panels, cards, action bar) |
-| `ProgressTrackBrush`   | `0.05, 0.00` | `0.05, 0.06` | TOTP progress track |
-| `ToastBgBrush`         | `0.08, 0.10` | `0.08, 0.00` | Toast notification surface |
+| `BgBrush`              | `0.03, 0.00` | `0.07, 0.03` | Window background. Light mode = visible tinted wash so pure-white panels can pop against it. |
+| `BgAltBrush`           | `0.02, 0.00` | `0.05, 0.02` | Outer/alt surface |
+| `PanelBrush`           | `0.05, 0.03` | `0.00, 0.00` | Header, vault control, dialog shell. Pure white in light mode for max contrast against `BgBrush`. |
+| `CardBrush`            | `0.04, 0.04` | `0.00, 0.00` | Cards at rest. Pure white in light mode. |
+| `CardHoverBrush`       | `0.08, 0.08` | `0.05, 0.04` | Card hover. Light mode = visible gray tint against white card. |
+| `InputBrush`           | `0.03, 0.00` | `0.04, 0.025` | TextBox/PasswordBox interior. Light mode = subtle wash to read inside a white panel. |
+| `ButtonBgBrush`        | `0.04, 0.05` | `0.03, 0.02` | Ghost button chrome |
+| `ButtonBorderBrush`    | `0.08, 0.10` | `0.09, 0.09` | Ghost button border |
+| `ButtonHoverBgBrush`   | `0.10, 0.10` | `0.06, 0.05` | Ghost button hover |
+| `ControlBgBrush`       | `0.05, 0.06` | `0.04, 0.03` | Window-control + small icon-button chrome |
+| `ControlBorderBrush`   | `0.08, 0.10` | `0.09, 0.09` | Same border |
+| `LineBrush`            | `0.08, 0.08` | `0.10, 0.10` | Main definition border (window outer, dialog shell) |
+| `LineSoftBrush`        | `0.05, 0.05` | `0.07, 0.07` | Subtle separator. Bumped in both modes vs. v1 — was disappearing on white. |
+| `ProgressTrackBrush`   | `0.05, 0.00` | `0.06, 0.06` | TOTP progress track |
+| `ToastBgBrush`         | `0.08, 0.10` | `0.00, 0.00` | Toast notification surface (pure white in light) |
 
 ### 3.3 Accent-derived tokens (not via `Surface`)
 
@@ -364,16 +364,33 @@ If you add a new interactive element, animate it. Static interactive elements fe
 
 ## 10. Iconography
 
-The app's identity is a single-letter rounded badge. Procedural generation in `Services/IconFactory.cs`:
-- Outer rounded square (`r=12` at 64px scale), filled with a 45° linear gradient from `Lighten(accent, 0.10)` → `Darken(accent, 0.40)`.
-- Top-half overlay shine (white→transparent, 90°).
-- Outer ring at low alpha (`accent`, 7px stroke).
-- Inner ring (light, 2.5px stroke).
-- The app's first letter (`A` for ApexAuth, `P` for ApexPass) centered, white, `Segoe UI Bold` at ~`34px`.
+### 10.1 App identity badge
 
-The same factory builds both the tray icon (64px) and the window icon (128px). The tray service must call `RefreshIcon()` from the `ThemeChanged` event.
+Single-letter rounded badge. The tray icon, window icon, and in-app logo all use the same recipe so they read as one mark:
+- Outer rounded square at `r≈13` (scaled per icon size), filled solid with the live accent — no gradient, no gloss.
+- A 1.4px alt-accent (`Lighten(accent, 0.20)`) outline.
+- A *very faint* top-down white highlight (alpha 36, top half only) to suggest dimension. No glow ring, no shine band.
+- The app's first letter (`A` for ApexAuth, `P` for ApexPass) centered in `OnAccentBrush`, `Segoe UI Variable Display` Bold at ~`36px` (scaled).
 
-In-window, the logo badge mirrors this: a `36×36` rounded `Border` with the accent as background, `AccentAltBrush` outline, soft accent drop-shadow, and the letter centered in `OnAccentBrush`.
+`Services/IconFactory.cs` generates the tray (`64px`) and window (`128px`) bitmaps via GDI+. The tray service must call `RefreshIcon()` from the `ThemeChanged` event so the tray glyph follows the accent.
+
+In-window, the logo badge is a `36×36` `Border` (`r=12`) with `Background = AccentColor`, `BorderBrush = AccentAltBrush`, a soft `ToastShadowColor` drop shadow, and the letter in `OnAccentBrush`.
+
+### 10.2 Inline UI icons
+
+Every interactive control glyph (window controls, card row actions, password reveal, empty states) uses **stroke-based vector paths**, never Unicode text glyphs. Unicode characters render inconsistently across fonts and dpi.
+
+Two delivery patterns:
+- **In XAML** (window-controls, eye reveal): inline `<Viewbox><Canvas Width="16" Height="16"><Path .../></Canvas></Viewbox>` with `IsHitTestVisible="False"`. Stroke is `{DynamicResource <BrushKey>}` so it follows theme changes.
+- **In C#** (account-card actions, empty states): use `UI/Icons.cs` — static factory methods that return a `Viewbox` containing the same shape. The stroke brush is wired via `SetResourceReference` so re-theming is automatic.
+
+Authoring rules for new icons:
+- Design on a `16×16` canvas. Use `StrokeThickness` between `1.4` and `1.6` so the line weight matches across the set.
+- `StrokeStartLineCap` / `StrokeEndLineCap` / `StrokeLineJoin` = `Round` for every path.
+- Never fill — strokes only.
+- Display size is `12–14px` for chrome buttons, `28px+` for empty-state badges; pick the viewbox `display` value accordingly.
+
+The canonical set in `Icons.cs`: `Minimize`, `Close`, `Copy`, `Edit`, `Delete` (defaults to `DangerBrush`), `EmptyState`. Add domain-specific glyphs (key, lock, eye, etc.) following the same recipe.
 
 ---
 
@@ -465,5 +482,6 @@ Suggested ApexPass-only additions, all following these rules:
 |---|---|
 | 2026-05-25 | Initial design language extraction from ApexAuth (post-typography + border rework). Defines palette derivation, radius scale, weight scale, animation feel, and ApexPass adaptation guide. |
 | 2026-05-25 | **Polish pass.** Progress bar reshaped to `r=6` outer / `r=5` indicator with 1px `LineSoftBrush` outline and 1px inset (height bumped to `10px` for substance). Standardized outer panel margin at `14px` everywhere; lock-card padding `22→20` (matches dialog); lock subtitle/button vertical rhythm tightened (`16/16` instead of `18/18`); confirm-password gap `10→8`. Dialog footer gap unified to `8px` total (cancel `4`, primary `4`). Destructive primary buttons now use `OnDangerBrush` for proper red-button text contrast. Logo button gets a `1.06×` `BackEase` scale on hover (only "grow" hover in Apex) + the `ApexFocusVisualStyle`. Card icon buttons (Copy/Edit/Delete) now press-animate to `scale 0.88` like the rest of the button family. Hex preview swatch in popup dropped to `LineSoftBrush` border (was the harsher `LineBrush`). Added `ApexFocusVisualStyle` — a 1.5px dashed accent ring at `-3px` offset — wired into `RoundedButtonBase`, replacing WPF's dotted black outline. Account dialog "Finish" relabelled to "Save" for verb consistency. |
+| 2026-05-25 | **Icon system + light-mode separation overhaul.** Introduced `UI/Icons.cs`: stroke-based vector icon set (`Minimize`, `Close`, `Copy`, `Edit`, `Delete`, `EmptyState`) drawn on a 16×16 canvas with `1.4–1.6px` round-cap strokes. **Replaced every Unicode glyph in the UI** — window minimize/close, account card Copy/Edit/Delete, and the password reveal eye (also redesigned, dropped its decorative glint dot). Rewrote `IconFactory` tray logo: flat solid-accent fill + thin alt-accent ring + clean "A" — matches the in-app badge instead of the old glossy gradient/glow look. Tray icon already refreshes on accent change via `TrayService.RefreshIcon()`. **Light-mode hierarchy redone**: `BgBrush` now a visible tinted wash (`0.07, 0.03`), `PanelBrush` and `CardBrush` switch to pure white so they pop against the wash. `LineSoftBrush` bumped (`0.04→0.05` dark, `0.025→0.07` light) — was invisible on white. `CardHoverBrush` light reworked to a gray tint that reads against white. Empty state gets a 56px accent-tinted badge with an `EmptyState` glyph, and its heading goes `Bold→Black`. Toast now wraps (`MaxWidth=320`, `TextAlignment=Center`) so long messages don't overflow. Popup hex-error label gets `TextWrapping=Wrap`. |
 
 > When you update ApexAuth's design system, add a line here describing the change. If a change affects ApexPass too, also bump the sibling app to match.

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Drawing = System.Drawing;
@@ -8,6 +9,12 @@ namespace ApexAuth.Services;
 
 public static class IconFactory
 {
+    private static readonly ConcurrentDictionary<float, Drawing.Font> FontCache = new();
+
+    private static Drawing.Font GetLogoFont(float pixelSize) =>
+        FontCache.GetOrAdd(pixelSize, px => new Drawing.Font(
+            "Segoe UI Variable Display", px, Drawing.FontStyle.Bold, Drawing.GraphicsUnit.Pixel));
+
     public static Drawing.Icon CreateTrayIcon()
     {
         using var bitmap = CreateLogoBitmap(64, AccentColor());
@@ -43,65 +50,78 @@ public static class IconFactory
         return Color.FromRgb(0x7C, 0x73, 0xFF);
     }
 
+    // Flat, modern: solid accent fill, thin alt-accent ring, centered bold "A".
+    // Mirrors the in-app logo badge so the tray and window read as the same mark.
     private static Drawing.Bitmap CreateLogoBitmap(int size, Color accent)
     {
         var bitmap = new Drawing.Bitmap(size, size);
         using var graphics = Drawing.Graphics.FromImage(bitmap);
         graphics.SmoothingMode = Drawing2D.SmoothingMode.AntiAlias;
+        graphics.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         graphics.Clear(Drawing.Color.Transparent);
 
-        var lighter = Lighten(accent, 0.10);
-        var darker  = Darken(accent, 0.40);
+        var scale     = size / 64f;
+        var altAccent = Lighten(accent, 0.20);
+        var onAccent  = ContrastText(accent);
 
-        var scale = size / 64f;
-        using var bg = new Drawing2D.LinearGradientBrush(
-            new Drawing.Rectangle(0, 0, size, size),
-            Drawing.Color.FromArgb(255, lighter.R, lighter.G, lighter.B),
-            Drawing.Color.FromArgb(255, darker.R, darker.G, darker.B),
-            45f);
-        using var shine = new Drawing2D.LinearGradientBrush(
-            new Drawing.Rectangle(0, 0, size, size / 2),
-            Drawing.Color.FromArgb(125, 255, 255, 255),
+        // Body: solid accent rounded square. 5px outer margin on a 64px canvas.
+        var body       = ScaleRect(5, 5, 54, 54, scale);
+        var bodyRadius = (int)Math.Round(13 * scale);
+
+        using var fill = new Drawing.SolidBrush(ToGdi(accent));
+        graphics.FillRoundedRectangle(fill, body, bodyRadius);
+
+        // Faintest top-down highlight to suggest dimension — no glossy ring or shine.
+        using var highlight = new Drawing2D.LinearGradientBrush(
+            new Drawing.Rectangle(0, 0, size, (int)(size * 0.55f)),
+            Drawing.Color.FromArgb(36, 255, 255, 255),
             Drawing.Color.FromArgb(0, 255, 255, 255),
             90f);
-        using var ring = new Drawing.Pen(Drawing.Color.FromArgb(210, 230, 233, 255), 2.5f * scale);
-        using var glow = new Drawing.Pen(Drawing.Color.FromArgb(120, accent.R, accent.G, accent.B), 7f * scale);
-        using var textBrush = new Drawing.SolidBrush(Drawing.Color.White);
-        using var font = new Drawing.Font("Segoe UI", 34f * scale, Drawing.FontStyle.Bold, Drawing.GraphicsUnit.Pixel);
-        using var textFormat = new Drawing.StringFormat
+        graphics.FillRoundedRectangle(highlight, body, bodyRadius);
+
+        // Thin alt-accent outline; 1px minimum so it always reads at 16/32px.
+        var penWidth = Math.Max(1.0f, 1.4f * scale);
+        using var ring = new Drawing.Pen(
+            Drawing.Color.FromArgb(230, altAccent.R, altAccent.G, altAccent.B),
+            penWidth);
+        graphics.DrawRoundedRectangle(ring, body, bodyRadius);
+
+        // Centered bold "A".
+        using var textBrush = new Drawing.SolidBrush(ToGdi(onAccent));
+        var font = GetLogoFont(36f * scale);
+        using var fmt = new Drawing.StringFormat
         {
             Alignment = Drawing.StringAlignment.Center,
             LineAlignment = Drawing.StringAlignment.Center
         };
+        var textRect = new Drawing.RectangleF(0, 1.5f * scale, size, 60 * scale);
+        graphics.DrawString("A", font, textBrush, textRect, fmt);
 
-        var outer = ScaleRect(5, 5, 54, 54, scale);
-        var inner = ScaleRect(9, 9, 46, 46, scale);
-        graphics.FillRoundedRectangle(bg, outer, (int)(15 * scale));
-        graphics.FillRoundedRectangle(shine, ScaleRect(9, 8, 46, 24, scale), (int)(12 * scale));
-        graphics.DrawRoundedRectangle(glow, ScaleRect(8, 8, 48, 48, scale), (int)(12 * scale));
-        graphics.DrawRoundedRectangle(ring, inner, (int)(12 * scale));
-        graphics.DrawString("A", font, textBrush, new Drawing.RectangleF(0, 2 * scale, size, 58 * scale), textFormat);
         return bitmap;
     }
+
+    private static Drawing.Color ToGdi(Color c) =>
+        Drawing.Color.FromArgb(255, c.R, c.G, c.B);
 
     private static Color Lighten(Color c, double amount) => Color.FromRgb(
         (byte)(c.R + (255 - c.R) * amount),
         (byte)(c.G + (255 - c.G) * amount),
         (byte)(c.B + (255 - c.B) * amount));
 
-    private static Color Darken(Color c, double amount) => Color.FromRgb(
-        (byte)(c.R * (1 - amount)),
-        (byte)(c.G * (1 - amount)),
-        (byte)(c.B * (1 - amount)));
-
-    private static Drawing.Rectangle ScaleRect(int x, int y, int width, int height, float scale)
+    private static Color ContrastText(Color bg)
     {
-        return new Drawing.Rectangle(
-            (int)(x * scale),
-            (int)(y * scale),
-            (int)(width * scale),
-            (int)(height * scale));
+        var luminance = bg.R * 0.299 + bg.G * 0.587 + bg.B * 0.114;
+        return luminance >= 150
+            ? Color.FromRgb(0x10, 0x11, 0x1A)
+            : Color.FromRgb(0xFF, 0xFF, 0xFF);
     }
+
+    private static Drawing.Rectangle ScaleRect(int x, int y, int width, int height, float scale) =>
+        new(
+            (int)Math.Round(x * scale),
+            (int)Math.Round(y * scale),
+            (int)Math.Round(width * scale),
+            (int)Math.Round(height * scale));
 
     private static class NativeMethods
     {

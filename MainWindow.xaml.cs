@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -16,15 +20,30 @@ namespace ApexAuth;
 
 public partial class MainWindow : Window
 {
+    private const int AutoLockMinutes = 5;
+    private const int ClipboardClearSeconds = 30;
+    private const int UnlockBackoffStartFailures = 5;
+    private const uint WDA_EXCLUDEFROMCAPTURE = 0x00000011;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
+
     private readonly VaultService _vault = new();
     private readonly TrayService _tray;
-    private readonly DispatcherTimer _timer      = new() { Interval = TimeSpan.FromMilliseconds(250) };
-    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(1.6) };
+    private readonly DispatcherTimer _timer              = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer _toastTimer         = new() { Interval = TimeSpan.FromSeconds(1.6) };
+    private readonly DispatcherTimer _idleTimer          = new() { Interval = TimeSpan.FromSeconds(30) };
+    private readonly DispatcherTimer _clipboardTimer    = new() { Interval = TimeSpan.FromSeconds(ClipboardClearSeconds) };
+    private readonly DispatcherTimer _unlockBackoffTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly Dictionary<Guid, (AuthAccount Account, TextBlock Block)> _codeBlocks = new();
     private ThemePopup? _themePopup;
     private long _lastTotpCounter = -1;
     private bool _reallyClose;
     private bool _syncingPasswordFields;
+    private DateTimeOffset _lastInteraction = DateTimeOffset.UtcNow;
+    private string? _clipboardCookie;
+    private int _failedUnlockAttempts;
+    private int _backoffSecondsRemaining;
 
     public MainWindow()
     {
@@ -34,8 +53,17 @@ public partial class MainWindow : Window
         Opacity = 0;
         RenderTransformOrigin = new Point(0.5, 1);
 
-        _timer.Tick      += (_, _) => RefreshCodes();
-        _toastTimer.Tick += (_, _) => { AnimateToastOut(); _toastTimer.Stop(); };
+        _timer.Tick               += (_, _) => RefreshCodes();
+        _toastTimer.Tick          += (_, _) => { AnimateToastOut(); _toastTimer.Stop(); };
+        _idleTimer.Tick           += (_, _) => CheckIdleAutoLock();
+        _clipboardTimer.Tick      += (_, _) => ClearClipboardIfOurs();
+        _unlockBackoffTimer.Tick  += (_, _) => TickUnlockBackoff();
+
+        PreviewMouseMove   += (_, _) => MarkInteraction();
+        PreviewMouseDown   += (_, _) => MarkInteraction();
+        PreviewKeyDown     += (_, _) => MarkInteraction();
+
+        SystemEvents.SessionSwitch += OnSessionSwitch;
 
         _tray = new TrayService(
             onShow: ShowFromTray,
@@ -43,6 +71,32 @@ public partial class MainWindow : Window
             onExit: () => { _reallyClose = true; Close(); });
 
         ThemeService.Current.ThemeChanged += OnThemeChanged;
+
+        SourceInitialized += (_, _) =>
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero) SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+        };
+    }
+
+    private void MarkInteraction() => _lastInteraction = DateTimeOffset.UtcNow;
+
+    private void CheckIdleAutoLock()
+    {
+        if (VaultPanel.Visibility != Visibility.Visible) return;
+        var idle = DateTimeOffset.UtcNow - _lastInteraction;
+        if (idle.TotalMinutes >= AutoLockMinutes) LockVault();
+    }
+
+    private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
+    {
+        if (e.Reason == SessionSwitchReason.SessionLock || e.Reason == SessionSwitchReason.SessionLogoff)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (VaultPanel.Visibility == Visibility.Visible) LockVault();
+            });
+        }
     }
 
     // ── Startup ──────────────────────────────────────────────────────────────
@@ -77,7 +131,6 @@ public partial class MainWindow : Window
     {
         RefreshWindowIcon();
         _tray.RefreshIcon();
-        if (VaultPanel.Visibility == Visibility.Visible) RenderAccounts();
     }
 
     private void RefreshWindowIcon() => Icon = IconFactory.CreateWindowIcon();
@@ -90,6 +143,8 @@ public partial class MainWindow : Window
     private void UnlockOrCreate()
     {
         LockError.Text = "";
+        if (_backoffSecondsRemaining > 0) return;
+
         var password = GetMasterPassword();
         if (password.Length < 10)
         {
@@ -111,13 +166,24 @@ public partial class MainWindow : Window
             {
                 _vault.Unlock(password);
             }
+            _failedUnlockAttempts = 0;
             ClearPasswordFields();
             LockedPanel.Visibility = Visibility.Collapsed;
             VaultPanel.Visibility  = Visibility.Visible;
+            MarkInteraction();
             _timer.Start();
+            _idleTimer.Start();
             RenderAccounts();
             RefreshCodes();
             ShowToast("Vault unlocked");
+        }
+        catch (CryptographicException)
+        {
+            HandleUnlockFailure("Incorrect password or corrupted vault.");
+        }
+        catch (InvalidDataException)
+        {
+            HandleUnlockFailure("Incorrect password or corrupted vault.");
         }
         catch (Exception ex)
         {
@@ -125,11 +191,49 @@ public partial class MainWindow : Window
         }
     }
 
+    private void HandleUnlockFailure(string message)
+    {
+        _failedUnlockAttempts++;
+        LockError.Text = message;
+        if (_failedUnlockAttempts >= UnlockBackoffStartFailures)
+        {
+            var penalty = Math.Min(60, 1 << Math.Min(6, _failedUnlockAttempts - UnlockBackoffStartFailures));
+            StartUnlockBackoff(penalty);
+        }
+    }
+
+    private void StartUnlockBackoff(int seconds)
+    {
+        _backoffSecondsRemaining = seconds;
+        UnlockButton.IsEnabled = false;
+        UpdateBackoffButtonText();
+        _unlockBackoffTimer.Start();
+    }
+
+    private void TickUnlockBackoff()
+    {
+        _backoffSecondsRemaining--;
+        if (_backoffSecondsRemaining <= 0)
+        {
+            _unlockBackoffTimer.Stop();
+            UnlockButton.IsEnabled = true;
+            UnlockButton.Content = _vault.Exists ? "Unlock" : "Create Vault";
+            return;
+        }
+        UpdateBackoffButtonText();
+    }
+
+    private void UpdateBackoffButtonText() =>
+        UnlockButton.Content = $"Wait {_backoffSecondsRemaining}s";
+
     private void LockButton_Click(object sender, RoutedEventArgs e) => LockVault();
 
     private void LockVault()
     {
         _timer.Stop();
+        _idleTimer.Stop();
+        _clipboardTimer.Stop();
+        ClearClipboardIfOurs();
         _codeBlocks.Clear();
         _lastTotpCounter = -1;
         _vault.Lock();
@@ -167,14 +271,34 @@ public partial class MainWindow : Window
         var stack = new StackPanel
         {
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 48, 0, 0)
+            Margin = new Thickness(0, 56, 0, 0)
         };
+
+        var badge = new Border
+        {
+            Width = 56, Height = 56,
+            CornerRadius = new CornerRadius(16),
+            Background = (Brush)Application.Current.FindResource("AccentSubtleBrush"),
+            BorderBrush = (Brush)Application.Current.FindResource("LineSoftBrush"),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 16)
+        };
+        var glyph = UI.Icons.EmptyState("AccentBrush", display: 28);
+        if (glyph is FrameworkElement fe)
+        {
+            fe.HorizontalAlignment = HorizontalAlignment.Center;
+            fe.VerticalAlignment = VerticalAlignment.Center;
+        }
+        badge.Child = glyph;
+        stack.Children.Add(badge);
+
         stack.Children.Add(new TextBlock
         {
             Text = "No accounts yet",
             Foreground = (Brush)Application.Current.FindResource("TextBrush"),
             FontSize = 16,
-            FontWeight = FontWeights.Bold,
+            FontWeight = FontWeights.Black,
             HorizontalAlignment = HorizontalAlignment.Center
         });
         stack.Children.Add(new TextBlock
@@ -182,7 +306,7 @@ public partial class MainWindow : Window
             Text = "Tap + Add to import your first TOTP secret.",
             Foreground = (Brush)Application.Current.FindResource("MutedBrush"),
             FontSize = 12,
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = FontWeights.Bold,
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 6, 0, 0)
         });
@@ -193,6 +317,7 @@ public partial class MainWindow : Window
     private void RefreshCodes()
     {
         if (VaultPanel.Visibility != Visibility.Visible) return;
+        if (!IsVisible) return;
 
         var now = DateTimeOffset.UtcNow;
         CycleProgress.Value = TotpService.CycleProgress(now) * 100;
@@ -245,8 +370,41 @@ public partial class MainWindow : Window
 
     private void CopyCode(AuthAccount account)
     {
-        Clipboard.SetText(TotpService.GetCode(account.Secret));
+        var code = TotpService.GetCode(account.Secret);
+        SetClipboardSensitive(code);
         ShowToast($"Copied {account.Label}");
+    }
+
+    private void SetClipboardSensitive(string text)
+    {
+        var data = new DataObject();
+        data.SetText(text);
+        data.SetData("ExcludeClipboardContentFromMonitors", true);
+        data.SetData("CanIncludeInClipboardHistory", false);
+        try
+        {
+            Clipboard.SetDataObject(data, copy: true);
+        }
+        catch (COMException)
+        {
+            Clipboard.SetText(text);
+        }
+        _clipboardCookie = text;
+        _clipboardTimer.Stop();
+        _clipboardTimer.Start();
+    }
+
+    private void ClearClipboardIfOurs()
+    {
+        _clipboardTimer.Stop();
+        if (_clipboardCookie is null) return;
+        try
+        {
+            if (Clipboard.ContainsText() && Clipboard.GetText() == _clipboardCookie)
+                Clipboard.Clear();
+        }
+        catch (COMException) { /* clipboard locked by another app — give up */ }
+        _clipboardCookie = null;
     }
 
     // ── Import / Export ───────────────────────────────────────────────────────
@@ -293,6 +451,12 @@ public partial class MainWindow : Window
         WindowState = WindowState.Normal;
         AnimateWindowIn();
         Activate();
+        if (VaultPanel.Visibility == Visibility.Visible && !_timer.IsEnabled)
+        {
+            MarkInteraction();
+            _timer.Start();
+            RefreshCodes();
+        }
     }
 
     private void PositionAboveTray()
@@ -313,11 +477,20 @@ public partial class MainWindow : Window
     }
 
     private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void CloseButton_Click(object sender, RoutedEventArgs e)    => Hide();
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        _timer.Stop();
+        Hide();
+    }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (!_reallyClose) { e.Cancel = true; Hide(); return; }
+        if (!_reallyClose) { e.Cancel = true; _timer.Stop(); Hide(); return; }
+        _idleTimer.Stop();
+        _clipboardTimer.Stop();
+        _unlockBackoffTimer.Stop();
+        ClearClipboardIfOurs();
+        SystemEvents.SessionSwitch -= OnSessionSwitch;
         _tray.Dispose();
         _vault.Lock();
         Application.Current.Shutdown();
@@ -392,16 +565,20 @@ public partial class MainWindow : Window
 
     private void ClearPasswordFields()
     {
+        _syncingPasswordFields = true;
         MasterPasswordBox.Clear(); MasterPasswordTextBox.Clear();
         ConfirmPasswordBox.Clear(); ConfirmPasswordTextBox.Clear();
+        _syncingPasswordFields = false;
     }
 
     private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
         if (_syncingPasswordFields) return;
         _syncingPasswordFields = true;
-        MasterPasswordTextBox.Text = MasterPasswordBox.Password;
-        ConfirmPasswordTextBox.Text = ConfirmPasswordBox.Password;
+        if (MasterPasswordTextBox.Visibility == Visibility.Visible)
+            MasterPasswordTextBox.Text = MasterPasswordBox.Password;
+        if (ConfirmPasswordTextBox.Visibility == Visibility.Visible)
+            ConfirmPasswordTextBox.Text = ConfirmPasswordBox.Password;
         _syncingPasswordFields = false;
     }
 
@@ -409,35 +586,42 @@ public partial class MainWindow : Window
     {
         if (_syncingPasswordFields) return;
         _syncingPasswordFields = true;
-        MasterPasswordBox.Password = MasterPasswordTextBox.Text;
-        ConfirmPasswordBox.Password = ConfirmPasswordTextBox.Text;
+        if (MasterPasswordTextBox.Visibility == Visibility.Visible)
+            MasterPasswordBox.Password = MasterPasswordTextBox.Text;
+        if (ConfirmPasswordTextBox.Visibility == Visibility.Visible)
+            ConfirmPasswordBox.Password = ConfirmPasswordTextBox.Text;
         _syncingPasswordFields = false;
     }
 
     private void MasterRevealButton_Click(object sender, RoutedEventArgs e) =>
-        ToggleReveal(MasterPasswordBox, MasterPasswordTextBox, MasterEyeClosed, MasterEyeOpen, MasterEyePupil, MasterEyeGlint);
+        ToggleReveal(MasterPasswordBox, MasterPasswordTextBox, MasterEyeClosed, MasterEyeOpen, MasterEyePupil);
 
     private void ConfirmRevealButton_Click(object sender, RoutedEventArgs e) =>
-        ToggleReveal(ConfirmPasswordBox, ConfirmPasswordTextBox, ConfirmEyeClosed, ConfirmEyeOpen, ConfirmEyePupil, ConfirmEyeGlint);
+        ToggleReveal(ConfirmPasswordBox, ConfirmPasswordTextBox, ConfirmEyeClosed, ConfirmEyeOpen, ConfirmEyePupil);
 
-    private static void ToggleReveal(PasswordBox box, TextBox text, UIElement closed, UIElement open, UIElement pupil, UIElement glint)
+    private void ToggleReveal(PasswordBox box, TextBox text, UIElement closed, UIElement open, UIElement pupil)
     {
         if (text.Visibility == Visibility.Visible)
         {
+            _syncingPasswordFields = true;
             box.Password = text.Text;
+            text.Clear();
+            _syncingPasswordFields = false;
             text.Visibility = Visibility.Collapsed;
             box.Visibility = Visibility.Visible;
             closed.Visibility = Visibility.Visible;
-            open.Visibility = pupil.Visibility = glint.Visibility = Visibility.Collapsed;
+            open.Visibility = pupil.Visibility = Visibility.Collapsed;
             box.Focus();
         }
         else
         {
+            _syncingPasswordFields = true;
             text.Text = box.Password;
+            _syncingPasswordFields = false;
             box.Visibility = Visibility.Collapsed;
             text.Visibility = Visibility.Visible;
             closed.Visibility = Visibility.Collapsed;
-            open.Visibility = pupil.Visibility = glint.Visibility = Visibility.Visible;
+            open.Visibility = pupil.Visibility = Visibility.Visible;
             text.Focus();
             text.CaretIndex = text.Text.Length;
         }

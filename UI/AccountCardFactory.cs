@@ -21,11 +21,6 @@ public static class AccountCardFactory
         Action<AuthAccount> onDelete,
         out TextBlock codeBlock)
     {
-        var restBg     = Res("CardBrush");
-        var hoverBg    = Res("CardHoverBrush");
-        var restBorder = Res("LineSoftBrush");
-        var hoverBorder = Res("AccentSoftBrush");
-
         var translate = new TranslateTransform(0, 6);
         var scale     = new ScaleTransform(1, 1);
         var transformGroup = new TransformGroup();
@@ -35,8 +30,6 @@ public static class AccountCardFactory
         var card = new Border
         {
             Tag = account,
-            Background = restBg,
-            BorderBrush = restBorder,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14, 12, 12, 12),
@@ -46,17 +39,19 @@ public static class AccountCardFactory
             RenderTransform = transformGroup,
             Cursor = Cursors.Hand
         };
+        card.SetResourceReference(Border.BackgroundProperty, "CardBrush");
+        card.SetResourceReference(Border.BorderBrushProperty, "LineSoftBrush");
         card.Loaded += (_, _) => AnimateIn(card, translate);
         card.MouseEnter += (_, _) =>
         {
-            card.Background = hoverBg;
-            card.BorderBrush = hoverBorder;
+            card.SetResourceReference(Border.BackgroundProperty, "CardHoverBrush");
+            card.SetResourceReference(Border.BorderBrushProperty, "AccentSoftBrush");
             AnimateTo(translate, TranslateTransform.YProperty, -2, 180, EaseOut);
         };
         card.MouseLeave += (_, _) =>
         {
-            card.Background = restBg;
-            card.BorderBrush = restBorder;
+            card.SetResourceReference(Border.BackgroundProperty, "CardBrush");
+            card.SetResourceReference(Border.BorderBrushProperty, "LineSoftBrush");
             AnimateTo(translate, TranslateTransform.YProperty, 0, 220, EaseOut);
         };
         card.PreviewMouseLeftButtonDown += (_, _) =>
@@ -81,25 +76,26 @@ public static class AccountCardFactory
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var left = new StackPanel();
-        left.Children.Add(new TextBlock
+        var label = new TextBlock
         {
             Text = account.Label,
-            Foreground = Res("TextBrush"),
             FontSize = 12,
             FontWeight = FontWeights.ExtraBold,
             Margin = new Thickness(0, 0, 0, 2)
-        });
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        left.Children.Add(label);
 
         var code = new TextBlock
         {
             Text = FormatCode(TotpService.GetCode(account.Secret)),
-            Foreground = Res("AccentBrush"),
             FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas"),
             FontSize = 26,
             FontWeight = FontWeights.ExtraBold,
             Margin = new Thickness(0, 4, 0, 0),
             RenderTransformOrigin = new Point(0, 0.5)
         };
+        code.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
         codeBlock = code;
         left.Children.Add(code);
         grid.Children.Add(left);
@@ -109,9 +105,9 @@ public static class AccountCardFactory
             Orientation = Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Center
         };
-        actions.Children.Add(MakeIconButton("⧉",  "Copy",   () => { FlashBorder(card); onCopy(account); }));
-        actions.Children.Add(MakeIconButton("✎",  "Edit",   () => onEdit(account)));
-        actions.Children.Add(MakeIconButton("✕",  "Delete", () => onDelete(account), danger: true));
+        actions.Children.Add(MakeIconButton(Icons.Copy(),                  "Copy",   () => { FlashBorder(card); onCopy(account); }));
+        actions.Children.Add(MakeIconButton(Icons.Edit(),                  "Edit",   () => onEdit(account)));
+        actions.Children.Add(MakeIconButton(Icons.Delete("DangerBrush"),   "Delete", () => onDelete(account), danger: true));
         Grid.SetColumn(actions, 1);
         grid.Children.Add(actions);
 
@@ -148,25 +144,20 @@ public static class AccountCardFactory
 
     private static void FlashBorder(Border card)
     {
-        card.BorderBrush = (Brush)Application.Current.FindResource("AccentBrush");
+        card.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
 
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            card.BorderBrush = card.IsMouseOver
-                ? (Brush)Application.Current.FindResource("AccentSoftBrush")
-                : (Brush)Application.Current.FindResource("LineSoftBrush");
+            card.SetResourceReference(Border.BorderBrushProperty,
+                card.IsMouseOver ? "AccentSoftBrush" : "LineSoftBrush");
         };
         timer.Start();
     }
 
-    private static Button MakeIconButton(string glyph, string tip, Action handler, bool danger = false)
+    private static Button MakeIconButton(UIElement glyph, string tip, Action handler, bool danger = false)
     {
-        var bg     = danger ? Res("DangerSoftBrush") : Res("ButtonBgBrush");
-        var border = danger ? Res("DangerBrush")     : Res("ButtonBorderBrush");
-        var fg     = danger ? Res("DangerBrush")     : Res("TextBrush");
-
         var btn = new Button
         {
             Content = glyph,
@@ -176,14 +167,11 @@ public static class AccountCardFactory
             Width = 30,
             Height = 30,
             MinHeight = 30,
-            FontSize = 13,
-            FontWeight = FontWeights.SemiBold,
-            Background = bg,
-            BorderBrush = border,
-            Foreground = fg,
             Cursor = Cursors.Hand,
             Template = IconButtonTemplate()
         };
+        btn.SetResourceReference(Button.BackgroundProperty, danger ? "DangerSoftBrush" : "ButtonBgBrush");
+        btn.SetResourceReference(Button.BorderBrushProperty, danger ? "DangerBrush" : "ButtonBorderBrush");
         btn.Click += (_, _) => handler();
         return btn;
     }

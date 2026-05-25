@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace ApexAuth.Services;
@@ -7,10 +8,19 @@ namespace ApexAuth.Services;
 public static class TotpService
 {
     private const int StepSeconds = 30;
+    private static readonly ConcurrentDictionary<string, byte[]> KeyCache = new();
+
+    public static void ClearCache()
+    {
+        foreach (var key in KeyCache.Values)
+            CryptographicOperations.ZeroMemory(key);
+        KeyCache.Clear();
+    }
 
     public static string GetCode(string secret, DateTimeOffset? now = null)
     {
-        var key = DecodeBase32(secret);
+        var normalized = NormalizeSecret(secret);
+        var key = KeyCache.GetOrAdd(normalized, DecodeBase32);
         var unix = (now ?? DateTimeOffset.UtcNow).ToUnixTimeSeconds();
         var counter = unix / StepSeconds;
         Span<byte> counterBytes = stackalloc byte[8];
@@ -20,8 +30,8 @@ public static class TotpService
             counter >>= 8;
         }
 
-        using var hmac = new HMACSHA1(key);
-        var hash = hmac.ComputeHash(counterBytes.ToArray());
+        Span<byte> hash = stackalloc byte[20];
+        HMACSHA1.HashData(key, counterBytes, hash);
         var offset = hash[^1] & 0x0f;
         var binary =
             ((hash[offset] & 0x7f) << 24) |

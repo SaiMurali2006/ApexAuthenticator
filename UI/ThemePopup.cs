@@ -126,7 +126,8 @@ public sealed class ThemePopup
         {
             Foreground = Res("DangerBrush"),
             FontSize = 11,
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = FontWeights.Bold,
+            TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 6, 0, 0),
             Visibility = Visibility.Collapsed
         };

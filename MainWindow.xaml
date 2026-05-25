@@ -122,10 +122,22 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
               <Button Style="{DynamicResource WindowControlButton}" Click="MinimizeButton_Click" ToolTip="Minimize">
-                <TextBlock Text="−" FontSize="18" FontWeight="Black" Margin="0,-3,0,0"/>
+                <Viewbox Width="12" Height="12" IsHitTestVisible="False">
+                  <Canvas Width="16" Height="16">
+                    <Path Stroke="{DynamicResource TextBrush}" StrokeThickness="1.6"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Data="M3.5,8 H12.5"/>
+                  </Canvas>
+                </Viewbox>
               </Button>
               <Button Style="{DynamicResource WindowControlButton}" Margin="6,0,0,0" Click="CloseButton_Click" ToolTip="Hide to tray">
-                <TextBlock Text="×" FontSize="16" FontWeight="Black" Margin="0,-1,0,0"/>
+                <Viewbox Width="12" Height="12" IsHitTestVisible="False">
+                  <Canvas Width="16" Height="16">
+                    <Path Stroke="{DynamicResource TextBrush}" StrokeThickness="1.6"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M4,4 L12,12 M12,4 L4,12"/>
+                  </Canvas>
+                </Viewbox>
               </Button>
             </StackPanel>
           </Grid>
@@ -176,19 +188,20 @@
               <Button x:Name="MasterRevealButton" Width="30" Height="30" Padding="0"
                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
                       Style="{DynamicResource WindowControlButton}" Click="MasterRevealButton_Click">
-                <Viewbox Width="19" Height="15">
-                  <Canvas Width="24" Height="18">
-                    <Path x:Name="MasterEyeClosed" Stroke="{DynamicResource TextBrush}" StrokeThickness="3.2"
+                <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                  <Canvas Width="16" Height="16">
+                    <Path x:Name="MasterEyeClosed"
+                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M3,6 C8,13 16,13 21,6 M6,10 L4,13 M12,12 L12,16 M18,10 L20,13"/>
-                    <Path x:Name="MasterEyeOpen" Visibility="Collapsed" Stroke="{DynamicResource TextBrush}"
-                          StrokeThickness="3.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                          StrokeLineJoin="Round" Data="M3,10 C8,3 16,3 21,10"/>
+                          Data="M2,5 C5,9.5 11,9.5 14,5 M3.5,8 L2,10 M8,10 L8,12 M12.5,8 L14,10"/>
+                    <Path x:Name="MasterEyeOpen" Visibility="Collapsed"
+                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M1.5,8 C4,4 6,3 8,3 C10,3 12,4 14.5,8 C12,12 10,13 8,13 C6,13 4,12 1.5,8 Z"/>
                     <Ellipse x:Name="MasterEyePupil" Visibility="Collapsed"
-                             Fill="{DynamicResource TextBrush}" Width="7" Height="7"
-                             Canvas.Left="8.5" Canvas.Top="8"/>
-                    <Ellipse x:Name="MasterEyeGlint" Visibility="Collapsed" Fill="White" Width="2" Height="2"
-                             Canvas.Left="13" Canvas.Top="9"/>
+                             Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                             Width="3.6" Height="3.6"
+                             Canvas.Left="6.2" Canvas.Top="6.2"/>
                   </Canvas>
                 </Viewbox>
               </Button>
@@ -200,19 +213,20 @@
               <Button x:Name="ConfirmRevealButton" Width="30" Height="30" Padding="0"
                       HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
                       Style="{DynamicResource WindowControlButton}" Click="ConfirmRevealButton_Click">
-                <Viewbox Width="19" Height="15">
-                  <Canvas Width="24" Height="18">
-                    <Path x:Name="ConfirmEyeClosed" Stroke="{DynamicResource TextBrush}" StrokeThickness="3.2"
+                <Viewbox Width="16" Height="16" IsHitTestVisible="False">
+                  <Canvas Width="16" Height="16">
+                    <Path x:Name="ConfirmEyeClosed"
+                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                          Data="M3,6 C8,13 16,13 21,6 M6,10 L4,13 M12,12 L12,16 M18,10 L20,13"/>
-                    <Path x:Name="ConfirmEyeOpen" Visibility="Collapsed" Stroke="{DynamicResource TextBrush}"
-                          StrokeThickness="3.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                          StrokeLineJoin="Round" Data="M3,10 C8,3 16,3 21,10"/>
+                          Data="M2,5 C5,9.5 11,9.5 14,5 M3.5,8 L2,10 M8,10 L8,12 M12.5,8 L14,10"/>
+                    <Path x:Name="ConfirmEyeOpen" Visibility="Collapsed"
+                          Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Data="M1.5,8 C4,4 6,3 8,3 C10,3 12,4 14.5,8 C12,12 10,13 8,13 C6,13 4,12 1.5,8 Z"/>
                     <Ellipse x:Name="ConfirmEyePupil" Visibility="Collapsed"
-                             Fill="{DynamicResource TextBrush}" Width="7" Height="7"
-                             Canvas.Left="8.5" Canvas.Top="8"/>
-                    <Ellipse x:Name="ConfirmEyeGlint" Visibility="Collapsed" Fill="White"
-                             Width="2" Height="2" Canvas.Left="13" Canvas.Top="9"/>
+                             Stroke="{DynamicResource TextBrush}" StrokeThickness="1.5"
+                             Width="3.6" Height="3.6"
+                             Canvas.Left="6.2" Canvas.Top="6.2"/>
                   </Canvas>
                 </Viewbox>
               </Button>
@@ -264,6 +278,7 @@
               BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
               CornerRadius="12" Padding="16,10"
               HorizontalAlignment="Center" VerticalAlignment="Bottom"
+              MaxWidth="320"
               Margin="0,0,0,18" Visibility="Collapsed"
               RenderTransformOrigin="0.5,1">
         <Border.Effect>
@@ -271,7 +286,8 @@
                             Color="{DynamicResource ToastShadowColor}"/>
         </Border.Effect>
         <TextBlock x:Name="ToastText" Foreground="{DynamicResource TextBrush}"
-                   FontWeight="Bold" FontSize="13"/>
+                   FontWeight="Bold" FontSize="13"
+                   TextWrapping="Wrap" TextAlignment="Center"/>
       </Border>
     </Grid>
   </Border>
