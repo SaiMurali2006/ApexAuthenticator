@@ -44,10 +44,10 @@ public abstract class DialogBase : Window
         Root.Children.Add(new TextBlock
         {
             Text = title,
-            FontSize = 18,
+            FontSize = 19,
             FontWeight = FontWeights.Black,
             Foreground = Res("TextBrush"),
-            Margin = new Thickness(0, 0, 0, 4)
+            Margin = new Thickness(0, 0, 0, 6)
         });
         Root.Children.Add(new Border
         {
@@ -56,7 +56,7 @@ public abstract class DialogBase : Window
             CornerRadius = new CornerRadius(3),
             HorizontalAlignment = HorizontalAlignment.Left,
             Background = Res(accentKey),
-            Margin = new Thickness(0, 0, 0, 14)
+            Margin = new Thickness(0, 0, 0, 16)
         });
 
         shell.Child = Root;

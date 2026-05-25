@@ -19,20 +19,20 @@ public sealed class AccountDialog : DialogBase
 
         Root.Children.Add(new TextBlock
         {
-            Text = "Label",
-            FontSize = 12,
-            FontWeight = FontWeights.Bold,
+            Text = "LABEL",
+            FontSize = 10,
+            FontWeight = FontWeights.ExtraBold,
             Foreground = Res("MutedBrush"),
-            Margin = new Thickness(0, 0, 0, 5)
+            Margin = new Thickness(0, 0, 0, 6)
         });
         Root.Children.Add(_label);
         Root.Children.Add(new TextBlock
         {
-            Text = "Base32 secret",
-            FontSize = 12,
-            FontWeight = FontWeights.Bold,
+            Text = "BASE32 SECRET",
+            FontSize = 10,
+            FontWeight = FontWeights.ExtraBold,
             Foreground = Res("MutedBrush"),
-            Margin = new Thickness(0, 10, 0, 5)
+            Margin = new Thickness(0, 12, 0, 6)
         });
         Root.Children.Add(_secret);
 
@@ -44,13 +44,13 @@ public sealed class AccountDialog : DialogBase
         var actions = new Grid { Margin = new Thickness(0, 14, 0, 0) };
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var cancel = new Button { Content = "Cancel", Style = GetStyle("GhostButton"), Margin = new Thickness(0, 0, 5, 0) };
+        var cancel = new Button { Content = "Cancel", Style = GetStyle("GhostButton"), Margin = new Thickness(0, 0, 4, 0) };
         cancel.Click += (_, _) => DialogResult = false;
         var save = new Button
         {
-            Content = account is null ? "Add" : "Finish",
+            Content = account is null ? "Add" : "Save",
             Style = GetStyle("PrimaryButton"),
-            Margin = new Thickness(5, 0, 0, 0)
+            Margin = new Thickness(4, 0, 0, 0)
         };
         save.Click += (_, _) => Save();
         Grid.SetColumn(save, 1);

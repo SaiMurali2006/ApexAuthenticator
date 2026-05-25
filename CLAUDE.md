@@ -1,5 +1,7 @@
 # ApexAuth — CLAUDE.md
 
+> **Sibling spec.** [otherCLAUDE.md](otherCLAUDE.md) is the canonical *design language* spec for the Apex family of apps (ApexAuth, ApexPass, …). When you change typography, color, shape, border hierarchy, or animation feel in this repo, update `otherCLAUDE.md`'s changelog so the sibling apps stay in sync.
+
 ## What This Is
 ApexAuth is a Windows WPF/.NET 8.0 TOTP authenticator that lives in the system tray. It encrypts all secrets locally with a master password and has no network dependencies. The executable is published as a single self-contained file.
 
@@ -183,6 +185,7 @@ See "Security Suggestions" section below.
 
 | File | Responsibility |
 |---|---|
+| [otherCLAUDE.md](otherCLAUDE.md) | Canonical design language spec — colors, shapes, type, animation; reused by ApexPass and any sibling app |
 | [App.xaml](App.xaml) | Default palette + button/input styles (theme fallback) |
 | [App.xaml.cs](App.xaml.cs) | Initializes `ThemeService` before window construction |
 | [Services/ThemeService.cs](Services/ThemeService.cs) | Owns palette, light/dark/system, accent hex, theme.json |

@@ -100,7 +100,7 @@ public sealed class ThemePopup
             Height = 34,
             CornerRadius = new CornerRadius(10),
             Background = Res("AccentBrush"),
-            BorderBrush = Res("LineBrush"),
+            BorderBrush = Res("LineSoftBrush"),
             BorderThickness = new Thickness(1),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0)
@@ -201,7 +201,7 @@ public sealed class ThemePopup
         var btn = new Button
         {
             Content = text,
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = FontWeights.Bold,
             FontSize = 12,
             Padding = new Thickness(4, 6, 4, 6),
             Cursor = Cursors.Hand,
@@ -272,7 +272,7 @@ public sealed class ThemePopup
     {
         Text = text,
         FontSize = 10,
-        FontWeight = FontWeights.Bold,
+        FontWeight = FontWeights.ExtraBold,
         Foreground = Res("MutedBrush"),
         Margin = new Thickness(2, 0, 0, 0)
     };

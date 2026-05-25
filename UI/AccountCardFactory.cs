@@ -23,7 +23,7 @@ public static class AccountCardFactory
     {
         var restBg     = Res("CardBrush");
         var hoverBg    = Res("CardHoverBrush");
-        var restBorder = Res("LineBrush");
+        var restBorder = Res("LineSoftBrush");
         var hoverBorder = Res("AccentSoftBrush");
 
         var translate = new TranslateTransform(0, 6);
@@ -84,9 +84,9 @@ public static class AccountCardFactory
         left.Children.Add(new TextBlock
         {
             Text = account.Label,
-            Foreground = Res("MutedBrush"),
-            FontSize = 11,
-            FontWeight = FontWeights.Bold,
+            Foreground = Res("TextBrush"),
+            FontSize = 12,
+            FontWeight = FontWeights.ExtraBold,
             Margin = new Thickness(0, 0, 0, 2)
         });
 
@@ -96,7 +96,7 @@ public static class AccountCardFactory
             Foreground = Res("AccentBrush"),
             FontFamily = new FontFamily("Cascadia Code, Cascadia Mono, Consolas"),
             FontSize = 26,
-            FontWeight = FontWeights.Bold,
+            FontWeight = FontWeights.ExtraBold,
             Margin = new Thickness(0, 4, 0, 0),
             RenderTransformOrigin = new Point(0, 0.5)
         };
@@ -148,15 +148,15 @@ public static class AccountCardFactory
 
     private static void FlashBorder(Border card)
     {
-        var accent = (Brush)Application.Current.FindResource("AccentBrush");
-        var line   = (Brush)Application.Current.FindResource("AccentSoftBrush");
-        card.BorderBrush = accent;
+        card.BorderBrush = (Brush)Application.Current.FindResource("AccentBrush");
 
         var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(280) };
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            card.BorderBrush = card.IsMouseOver ? line : (Brush)Application.Current.FindResource("LineBrush");
+            card.BorderBrush = card.IsMouseOver
+                ? (Brush)Application.Current.FindResource("AccentSoftBrush")
+                : (Brush)Application.Current.FindResource("LineSoftBrush");
         };
         timer.Start();
     }
@@ -200,10 +200,6 @@ public static class AccountCardFactory
             new System.Windows.Data.Binding("BorderBrush") { RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent });
         border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
         border.SetValue(FrameworkElement.RenderTransformOriginProperty, new Point(0.5, 0.5));
-        var scale = new FrameworkElementFactory(typeof(ScaleTransform));
-        scale.Name = "PressScale";
-        scale.SetValue(ScaleTransform.ScaleXProperty, 1.0);
-        scale.SetValue(ScaleTransform.ScaleYProperty, 1.0);
         border.SetValue(UIElement.RenderTransformProperty, new ScaleTransform(1, 1));
 
         var content = new FrameworkElementFactory(typeof(ContentPresenter));
@@ -219,9 +215,24 @@ public static class AccountCardFactory
         tpl.Triggers.Add(hoverTrigger);
 
         var pressedTrigger = new Trigger { Property = System.Windows.Controls.Primitives.ButtonBase.IsPressedProperty, Value = true };
-        pressedTrigger.Setters.Add(new Setter(UIElement.OpacityProperty, 0.6, "Chrome"));
+        pressedTrigger.EnterActions.Add(BuildScaleStoryboard(0.88, 80, new CubicEase { EasingMode = EasingMode.EaseOut }));
+        pressedTrigger.ExitActions.Add(BuildScaleStoryboard(1.0, 180, new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.5 }));
         tpl.Triggers.Add(pressedTrigger);
         return tpl;
+    }
+
+    private static BeginStoryboard BuildScaleStoryboard(double to, double ms, IEasingFunction ease)
+    {
+        var sb = new Storyboard();
+        foreach (var prop in new[] { "(UIElement.RenderTransform).(ScaleTransform.ScaleX)",
+                                     "(UIElement.RenderTransform).(ScaleTransform.ScaleY)" })
+        {
+            var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(ms)) { EasingFunction = ease };
+            Storyboard.SetTargetName(anim, "Chrome");
+            Storyboard.SetTargetProperty(anim, new PropertyPath(prop));
+            sb.Children.Add(anim);
+        }
+        return new BeginStoryboard { Storyboard = sb };
     }
 
     private static bool IsButtonAncestor(DependencyObject element)

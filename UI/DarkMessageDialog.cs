@@ -14,6 +14,7 @@ public sealed class DarkMessageDialog : DialogBase
             TextWrapping = TextWrapping.Wrap,
             Foreground = Res("MutedBrush"),
             FontSize = 13,
+            FontWeight = FontWeights.Bold,
             Margin = new Thickness(0, 0, 0, 16)
         });
 
@@ -23,7 +24,7 @@ public sealed class DarkMessageDialog : DialogBase
         {
             actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var cancel = new Button { Content = "Cancel", Style = GetStyle("GhostButton"), Margin = new Thickness(0, 0, 5, 0) };
+            var cancel = new Button { Content = "Cancel", Style = GetStyle("GhostButton"), Margin = new Thickness(0, 0, 4, 0) };
             cancel.Click += (_, _) => DialogResult = false;
             actions.Children.Add(cancel);
         }
@@ -37,7 +38,8 @@ public sealed class DarkMessageDialog : DialogBase
             Content = confirm ? "Delete" : "OK",
             Style = GetStyle("PrimaryButton"),
             Background = confirm ? Res("DangerBrush") : Res("AccentBrush"),
-            Margin = confirm ? new Thickness(5, 0, 0, 0) : new Thickness(0)
+            Foreground = confirm ? Res("OnDangerBrush") : Res("OnAccentBrush"),
+            Margin = confirm ? new Thickness(4, 0, 0, 0) : new Thickness(0)
         };
         primary.Click += (_, _) => DialogResult = true;
         Grid.SetColumn(primary, confirm ? 1 : 0);

@@ -45,7 +45,7 @@
 
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI"/>
-      <Setter Property="TextElement.FontWeight" Value="SemiBold"/>
+      <Setter Property="TextElement.FontWeight" Value="Bold"/>
       <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     </Style>
@@ -59,10 +59,11 @@
       <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="12,8"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="MinHeight" Value="34"/>
       <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+      <Setter Property="FocusVisualStyle" Value="{StaticResource ApexFocusVisualStyle}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
@@ -277,7 +278,7 @@
       <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
       <Setter Property="Padding" Value="12,9"/>
       <Setter Property="FontSize" Value="14"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="TextBox">
@@ -308,7 +309,7 @@
       <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
       <Setter Property="Padding" Value="12,9"/>
       <Setter Property="FontSize" Value="14"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="PasswordBox">
@@ -334,17 +335,37 @@
     <Style TargetType="ProgressBar">
       <Setter Property="Background" Value="{DynamicResource ProgressTrackBrush}"/>
       <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource LineSoftBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ProgressBar">
-            <Border Background="{TemplateBinding Background}" CornerRadius="8" ClipToBounds="True">
-              <Grid x:Name="PART_Track">
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6" ClipToBounds="True">
+              <Grid x:Name="PART_Track" Margin="1">
                 <Border x:Name="PART_Indicator"
                         HorizontalAlignment="Left"
                         Background="{TemplateBinding Foreground}"
-                        CornerRadius="8"/>
+                        CornerRadius="5"/>
               </Grid>
             </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Subtle accent ring focus visual; replaces WPF's dotted black outline. -->
+    <Style x:Key="ApexFocusVisualStyle">
+      <Setter Property="Control.Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Rectangle Margin="-3" StrokeThickness="1.5"
+                       Stroke="{DynamicResource AccentBrush}"
+                       StrokeDashArray="1,2"
+                       RadiusX="14" RadiusY="14"
+                       Opacity="0.85"/>
           </ControlTemplate>
         </Setter.Value>
       </Setter>

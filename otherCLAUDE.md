@@ -1,0 +1,469 @@
+# Apex Design Language — otherCLAUDE.md
+
+> **Purpose.** This document is the canonical design specification for the *Apex* family of Windows desktop apps (ApexAuth, ApexPass, and any sibling apps). It exists so any new app — including [[ApexPass]] — can reproduce ApexAuth's visual identity verbatim. Treat it as a contract: if you ship an Apex app that doesn't match these rules, you've drifted.
+>
+> Maintainer note: keep this file up to date whenever ApexAuth's design system evolves. The "Changelog" section at the bottom must reflect every meaningful change.
+
+---
+
+## 1. Philosophy
+
+Three rules govern everything visual:
+
+1. **Surfaces are neutral; the accent threads through.**
+   Backgrounds, panels, cards, inputs, borders, and button chrome are derived as a *mix of the user's accent color with a neutral base* — never a hardcoded hue. If the user picks teal as their accent, the entire UI subtly leans teal; if they pick coral, it leans coral. The accent itself (the unmixed color) is reserved for *interactive* elements only: primary buttons, monospace code/value text, progress bars, the logo badge, focus borders, and shadow halos.
+
+2. **Light/Dark/System with a user-configurable accent.**
+   Three modes (`Light`, `Dark`, `System`) plus a 6-digit hex accent picker, all persisted to `%APPDATA%\<AppName>\theme.json`. System mode tracks `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\AppsUseLightTheme` and listens to `SystemEvents.UserPreferenceChanged`. The theme entry point is **the app's logo badge in the top-left corner** — clicking it opens a popover with segmented mode control + preset swatches + hex input.
+
+3. **Quiet by default, alive on interaction.**
+   Resting state is calm: subtle borders, no glow, no shadow noise. Hovering, pressing, copying, and refreshing all earn small spring-based animations (`BackEase`, ~180–320ms). Nothing twitches or shouts.
+
+---
+
+## 2. Theme System
+
+### 2.1 Architecture
+
+Singleton `ThemeService.Current`, initialized in `App.OnStartup` *before* any window is constructed. Apps must:
+
+```csharp
+protected override void OnStartup(StartupEventArgs e)
+{
+    base.OnStartup(e);
+    ThemeService.Current.Initialize();   // load theme.json + subscribe to OS events
+    new MainWindow().Show();
+}
+```
+
+The service:
+- Owns the live palette and writes brushes/colors into `Application.Current.Resources`.
+- Listens to `SystemEvents.UserPreferenceChanged` to re-apply when the OS theme flips (only in `System` mode).
+- Fires a `ThemeChanged` event so persistent UI (account cards, tray icon, window icon) can re-render on swap.
+
+### 2.2 Resource pattern
+
+- **XAML consumers always use `{DynamicResource ...}`**, never `{StaticResource ...}`. Static references freeze on first parse and won't follow theme switches.
+- **C# code that builds long-lived UI** (cards, persistent toasts) should either rebuild on `ThemeChanged` or use `SetResourceReference(...)`. Short-lived modal dialogs may use `Application.Current.FindResource(...)` at construction.
+- **Adding a new color token**: add to `App.xaml` (defaults) *and* `ThemeService.Apply()` (live mapping). Both. If either is missing, the designer preview or the live theme breaks.
+
+### 2.3 Persistence
+
+`%APPDATA%\<AppName>\theme.json`:
+
+```json
+{
+  "Mode": "System",
+  "Accent": "#7C73FF"
+}
+```
+
+`Mode ∈ {Light, Dark, System}`. `Accent` is a 6-digit hex with or without `#`. Invalid values fall back to the default (`#7C73FF` for ApexAuth; pick a brand default per app).
+
+---
+
+## 3. Color Palette
+
+### 3.1 Derivation formula
+
+All surfaces are computed via `Surface(accentPct, lift)`:
+
+```
+Surface(accentPct, lift) =
+    let c = mix(accent, base, 1 - accentPct)    // bleed in accent
+    if lift > 0: c = mix(inverse, c, 1 - lift)  // pull toward inverse (lighten in dark, darken in light)
+    return c
+```
+
+Where:
+- `base` = `#0A0B10` (dark mode) or `#FFFFFF` (light mode)
+- `inverse` = `#FFFFFF` (dark mode) or `#14151F` (light mode)
+- `mix(a, b, bWeight)` is a per-channel linear blend; `0.96` means 96% of `b`, 4% of `a`.
+
+### 3.2 Token map
+
+| Token | Dark `Surface(a, l)` | Light `Surface(a, l)` | Purpose |
+|---|---|---|---|
+| `BgBrush`              | `0.03, 0.00` | `0.03, 0.00` | Window background |
+| `BgAltBrush`           | `0.02, 0.00` | `0.02, 0.00` | Outer/alt surface |
+| `PanelBrush`           | `0.05, 0.03` | `0.05, 0.00` | Header, vault control, dialog shell, toast |
+| `CardBrush`            | `0.04, 0.04` | `0.04, 0.00` | Cards at rest |
+| `CardHoverBrush`       | `0.08, 0.08` | `0.08, 0.04` | Card hover state |
+| `InputBrush`           | `0.03, 0.00` | `0.03, 0.02` | TextBox/PasswordBox interior |
+| `ButtonBgBrush`        | `0.04, 0.05` | `0.04, 0.02` | Ghost button chrome |
+| `ButtonBorderBrush`    | `0.08, 0.10` | `0.08, 0.07` | Ghost button border |
+| `ButtonHoverBgBrush`   | `0.10, 0.10` | `0.10, 0.06` | Ghost button hover |
+| `ControlBgBrush`       | `0.05, 0.06` | `0.05, 0.03` | Window-control + small icon-button chrome |
+| `ControlBorderBrush`   | `0.08, 0.10` | `0.08, 0.07` | Same border |
+| `LineBrush`            | `0.08, 0.08` | `0.08, 0.06` | Main definition border (window outer, dialog shell) |
+| `LineSoftBrush`        | `0.04, 0.04` | `0.04, 0.025` | Subtle separator (nested panels, cards, action bar) |
+| `ProgressTrackBrush`   | `0.05, 0.00` | `0.05, 0.06` | TOTP progress track |
+| `ToastBgBrush`         | `0.08, 0.10` | `0.08, 0.00` | Toast notification surface |
+
+### 3.3 Accent-derived tokens (not via `Surface`)
+
+| Token | Dark | Light | Purpose |
+|---|---|---|---|
+| `AccentBrush`              | `accent` | `accent` | Primary accent (interactive elements) |
+| `AccentAltBrush`           | `Lighten(accent, 0.18)` | same | Lifted accent for outlines/glow |
+| `AccentSoftBrush`          | `Surface(0.18, 0.04)`   | `Surface(0.18, 0.02)` | Accent-tinted chip background (eyebrow pill, dialog accent-bar bg) |
+| `AccentSubtleBrush`        | `Surface(0.08, 0.02)`   | `Surface(0.08, 0.01)` | Quiet accent wash |
+| `PrimaryButtonBgBrush`     | `accent` | `accent` | Primary CTA background |
+| `PrimaryButtonHoverBrush`  | `Lighten(accent, 0.10)` | same | Primary CTA hover |
+| `PrimaryButtonBorderBrush` | `Lighten(accent, 0.22)` | same | Primary CTA border |
+
+### 3.4 Fixed-per-theme tokens
+
+| Token | Dark | Light |
+|---|---|---|
+| `TextBrush`        | `#F1F3F8` | `#16171F` |
+| `MutedBrush`       | `#8C90A2` | `#6E7188` |
+| `DangerBrush`      | `#FF5C78` | `#D63255` |
+| `DangerSoftBrush`  | `#361822` | `#FBE3E9` |
+
+### 3.5 Auto-contrast
+
+`OnAccentBrush` is computed *per accent* via standard luminance:
+
+```
+luminance = r·0.299 + g·0.587 + b·0.114
+OnAccent  = (luminance ≥ 150) ? #10111A : #FFFFFF
+```
+
+Apply to: primary button text, logo glyph, active mode-segment text, anything else drawn directly on the accent color. **Never hardcode `Foreground="White"` on a primary CTA** — it breaks when the user picks a light accent (amber, mint).
+
+Equivalent `OnDangerBrush` is computed from the per-theme `DangerBrush`.
+
+### 3.6 Color resources (not brushes)
+
+For `Color="..."` attributes on `SolidColorBrush.Color`, `DropShadowEffect.Color`, and gradient stops, define raw `Color` keys (not `SolidColorBrush`):
+
+| Key | Default |
+|---|---|
+| `AccentColor`        | the live accent |
+| `AccentAltColor`     | lightened accent |
+| `AccentShadowColor`  | `Argb(160 dark / 70 light, accent)` |
+| `WindowShadowColor`  | dark: near-black opaque · light: `Argb(70, #1E2136)` |
+| `ToastShadowColor`   | dark: `Argb(140, accent)` · light: `Argb(45, accent)` |
+
+---
+
+## 4. Typography
+
+### 4.1 Font
+
+`Segoe UI Variable Text, Segoe UI` (fallback chain). For monospace values (codes, hex, secrets) use `Cascadia Code, Cascadia Mono, Consolas`. **Do not introduce new fonts.**
+
+### 4.2 Weight scale
+
+Body text is **Bold** by default — the app should never feel thin. Hierarchy is built by stepping *up* in weight, not down.
+
+| Role | Weight | Where |
+|---|---|---|
+| Window default (body)        | `Bold`        | App.xaml Window style — inherited everywhere |
+| Buttons (ghost + primary)    | `Bold`        | All button styles |
+| Inputs (TextBox/PasswordBox) | `Bold`        | Both input styles |
+| Section/eyebrow labels       | `ExtraBold`   | "SECURE SESSION", "LABEL", "BASE32 SECRET" — uppercased |
+| Card primary label           | `ExtraBold`   | Account name / entry title |
+| Card primary value (code)    | `ExtraBold`   | TOTP code, password preview |
+| Dialog title                 | `Black`       | "Add account", "Delete account" |
+| Lock/empty-state heading     | `Black`       | "Unlock vault", "No accounts yet" |
+| App title (header)           | `Black`       | "ApexAuth", "ApexPass" |
+| Tagline (header subtitle)    | `Bold`        | "Encrypted local authenticator" |
+| Body explanation             | `Bold`        | Dialog message bodies, lock subtitle |
+
+Avoid `Normal` and `Light` — they're never used in Apex.
+
+### 4.3 Size scale
+
+| Size | Use |
+|---|---|
+| `10pt`  | Eyebrow chips (`SECURE SESSION`, section labels) |
+| `11pt`  | Tagline under app title; very-small secondary text |
+| `12pt`  | Card primary label; popup section labels; segmented control |
+| `13pt`  | Toast body; dialog message body; icon-button glyph; cycle text |
+| `14pt`  | Inputs; ghost button content |
+| `18pt`  | App title in header |
+| `19pt`  | Dialog title |
+| `22pt`  | Lock-screen / empty-state heading |
+| `26pt`  | Card primary monospace value (TOTP code, password) |
+
+---
+
+## 5. Shape (Corner Radius Scale)
+
+A strict 4-step scale. Pick the closest tier; never invent new radii.
+
+| Radius | Use |
+|---|---|
+| **18** | Window outer border |
+| **14** | All panels, cards (lock card, empty-state), dialog shell, header panel, vault control panel |
+| **12** | Buttons (ghost + primary), inputs (TextBox/PasswordBox), action-bar inner container, account card, logo badge, toast |
+| **10** | Window-control buttons (minimize/close), account-card icon buttons (Copy/Edit/Delete), theme popup segmented control container, theme popup hex preview |
+| **8**  | Pills/chips (eyebrow labels), theme popup segment buttons, theme popup color swatches |
+| **6**  | Progress-bar outer track (with inner indicator radius `5`, 1px inset, 1px `LineSoftBrush` border) |
+
+**Nesting rule.** Inner radii should always be smaller than the parent's. A `r=14` panel containing an action bar should use `r=12`, whose buttons use `r=12` (matching, since they extend to the inner edge with `Padding=4`).
+
+---
+
+## 6. Border Hierarchy
+
+Borders are visual weight — too many stacked borders create noise. Apex uses a 3-tier hierarchy:
+
+| Tier | Token | Where |
+|---|---|---|
+| **Defining** | `LineBrush`   | Window outer · dialog shell (standalone windows) · input focus state (`IsKeyboardFocusWithin → AccentBrush`) |
+| **Subtle**   | `LineSoftBrush` | Cards · header panel · vault control panel · lock card · any nested panel inside the window |
+| **None**     | `BorderThickness="0"` | Action-bar inner container — relies on `InputBrush` background contrast against parent panel. Don't nest borders three levels deep. |
+| **Accent**   | `AccentBrush` | Toast (notification — meant to draw attention); inputs on focus |
+| **Accent-soft** | `AccentSoftBrush` | Card hover state |
+| **Decorative** | `AccentAltBrush` | Logo badge outline |
+
+**Rule of thumb.** A child border should always be *softer* than its parent's border (or have none). If the parent has `LineBrush`, the child has at most `LineSoftBrush`.
+
+---
+
+## 7. Spacing
+
+Margins/paddings in `(left, top, right, bottom)` or uniform.
+
+| Token | Px | Use |
+|---|---|---|
+| `2`     | Hair separator (between label and value inside a card) |
+| `4`     | Action-bar internal padding around segmented buttons |
+| `6`     | Vertical gap between dialog title and accent bar |
+| `8`     | Card vertical gap; eyebrow→title gap; small icon-button left margin |
+| `12`    | Window outer margin from edge to header; header internal padding |
+| `14`    | Header padding (`14,12`); vault control panel padding; action-bar nested margins |
+| `16`    | Toast padding (`16,10`); dialog title→content gap |
+| `18`    | Lock panel outer margin; toast bottom offset |
+| `20`    | Dialog shell padding |
+| `22`    | Lock card internal padding |
+
+The general rule: **outer surfaces use 12–14px**, **content padding uses 18–22px**, **micro-gaps stay 2–8px**.
+
+---
+
+## 8. Component Patterns
+
+### 8.1 Window chrome
+
+- `WindowStyle="None"`, `AllowsTransparency="True"`, `Background="Transparent"`.
+- A single root `Border` (`CornerRadius=18`, `BorderBrush=LineBrush`) with a `DropShadowEffect` (`BlurRadius=38`, `Color=WindowShadowColor`, `Opacity=1`).
+- Drag via a `MouseLeftButtonDown="Header_MouseLeftButtonDown"` handler on the header `Grid`; double-click minimizes.
+- Two `WindowControlButton`s (minimize `−`, close `×`) in the top-right of the header. Close hides to tray (`Hide()`); only tray's Exit item really closes.
+
+### 8.2 Header panel
+
+Layout:
+```
+[ Logo (clickable) ]  [ Title / Subtitle ]  [ Min ][ Close ]
+[          Action bar: Import / Export / Lock          ]
+```
+- Logo is a clickable `Button` (transparent template) whose content is a `36×36` accent-filled rounded `Border` with the app's letter (`A`). Clicking opens the `ThemePopup` anchored below.
+- App title is `Black 18pt`; tagline below is `Bold 11pt MutedBrush`.
+
+### 8.3 Action bar
+
+A 3-column equal-weight `Grid` of `GhostButton`s inside an `InputBrush`-tinted container with **no border** and `CornerRadius=12`. Inter-button gap: `3px`.
+
+### 8.4 Account/entry cards
+
+Every card has:
+- `CardBrush` background, `LineSoftBrush` border, `r=12`, `Padding=14,12,12,12`, `Margin=0,0,0,8`.
+- Left: small `MutedBrush` (or `TextBrush`) label + large monospace value below.
+- Right: three icon buttons (`30×30`, `r=10`) — Copy, Edit, Delete (danger).
+- Click anywhere outside a button → copy primary value (with border flash).
+
+Animations: AnimateIn on `Loaded` (opacity + 6px slide-up); hover lifts `-2px` and swaps border to `AccentSoftBrush`; press scales to `0.97`; copy flashes border to `AccentBrush` for `280ms`; primary value pulses (`opacity 1→0.25→1`, `scale 1→1.08→1`) when its data refreshes.
+
+### 8.5 Buttons
+
+Three styles, all spring-animated on press (scale `1→0.96 EnterAction`, `→1 ExitAction` with `BackEase Amplitude=0.4`):
+
+| Style | Background | Border | Foreground | Use |
+|---|---|---|---|---|
+| `GhostButton`         | `ButtonBgBrush`        | `ButtonBorderBrush` (hover → `AccentBrush`) | `TextBrush` | Secondary/neutral actions |
+| `PrimaryButton`       | `PrimaryButtonBgBrush` (= accent) | `PrimaryButtonBorderBrush` | `OnAccentBrush` (auto-contrast) | Single primary CTA per surface |
+| `WindowControlButton` | `ControlBgBrush`       | `ControlBorderBrush`       | `TextBrush` | Min/close + small icon actions; presses to `scale 0.9` for tactile feel |
+| Card icon button (in-line)   | `ButtonBgBrush` (or `DangerSoftBrush` for destructive) | `ButtonBorderBrush` (or `DangerBrush`) | `TextBrush` (or `DangerBrush`) | Card-row actions (Copy/Edit/Delete); presses to `scale 0.88` |
+
+All have `r=12` (or `r=10` for window/card-icon buttons), `Cursor=Hand`, hover changes `Background` (and border to accent for ghost). **Every button is keyboard-focusable with a custom `ApexFocusVisualStyle`** — a 1.5px dashed accent ring at `-3px` offset, `r=14`, opacity `0.85`. Never use WPF's default dotted black focus outline.
+
+### 8.6 Inputs (`TextBox` / `PasswordBox`)
+
+`InputBrush` background, `LineSoftBrush` border at rest, `r=12`, `Padding=12,9`, `Bold 14pt`. On `IsKeyboardFocusWithin=True` the border swaps to `AccentBrush`. Caret + selection brushes use `AccentBrush`.
+
+### 8.7 Dialogs
+
+All extend a `DialogBase` (Window with `WindowStyle=None`, `AllowsTransparency=true`):
+- Shell `Border` = `PanelBrush` bg, `LineBrush` border, `r=14`, `Padding=20`, `DropShadow(BlurRadius=28, Black, Opacity=0.4)`.
+- Header: `Black 19pt` title + a `38×3` accent-color "underline bar" with `r=3`.
+- Two-button footer: cancel (Ghost, left) + primary (Primary, right), each `Margin=0,0,4,0` / `4,0,0,0` — `8px` total gap between them.
+- For a destructive primary (e.g., "Delete" in confirm dialogs), background switches to `DangerBrush` and foreground to `OnDangerBrush` (auto-contrasted from the danger color).
+- Drag the dialog by mousing down on the shell.
+
+### 8.8 Toast
+
+Bottom-center, `ToastBgBrush` background, `AccentBrush` border, `r=12`, `Padding=16,10`, `Margin=...,22`, `DropShadow(BlurRadius=22, ToastShadowColor)`.
+
+Entry animation:
+- `Opacity 0→1` (CubicEase, 180ms)
+- `TranslateY 14→0` (BackEase, 320ms)
+- `Scale 0.92→1` (BackEase, 320ms)
+- Origin `(0.5, 1)` so it grows up from the bottom.
+
+Auto-hides after `1.6s` with `Opacity→0` + `TranslateY→8` (CubicEase EaseIn, 180ms).
+
+### 8.9 Theme popup (logo popover)
+
+Anchored to the logo button, `Placement=Bottom`, `VerticalOffset=8`, `StaysOpen=false`, `PopupAnimation=Slide`. After open, the shell springs from `scale 0.96→1` with `BackEase Amplitude=0.4`.
+
+Contents (in order):
+1. `APPEARANCE` section label (`ExtraBold 10pt MutedBrush`).
+2. Mode segmented control — `InputBrush` background, `LineSoftBrush` border, `r=10`, `Padding=3`, three equal `r=8` segments (Light/Dark/System). Active segment = `AccentBrush` bg + `OnAccentBrush` fg; inactive = transparent + `MutedBrush` fg.
+3. `ACCENT` section label.
+4. Eight color swatches (`24×24`, `r=8`, presets: violet, azure, teal, green, amber, coral, magenta, neutral).
+5. Hex input row: `34×34` accent preview + monospace `TextBox` (Enter or focus-loss to commit; invalid → inline `DangerBrush` error below).
+
+Shell: `PanelBrush` bg, `LineBrush` border, `r=14`, `Padding=14`, width `286`, `DropShadow(BlurRadius=26, Black, Opacity=0.35)`.
+
+### 8.10 Lock/empty-state
+
+A single centered `CardBrush` panel with:
+- `AccentSoftBrush` eyebrow pill (`r=8`, `Padding=9,4`) with `ExtraBold 10pt` accent-colored uppercase label (e.g., "SECURE SESSION").
+- `Black 22pt` heading (e.g., "Unlock vault").
+- `Bold 13pt MutedBrush` body explanation.
+- Inputs / primary button below.
+
+---
+
+## 9. Animations
+
+All animations use `Bold-` / `Spring-` feel — no linear ease, no overshoot longer than `260ms`.
+
+| Where | Easing | Duration | Effect |
+|---|---|---|---|
+| Window open                  | `BackEase EaseOut Amp=0.4`  | 320ms (scale), 220ms (opacity) | `Scale 0.92→1` + fade in |
+| Toast in                     | `BackEase EaseOut Amp=0.45` | 320ms | Translate + scale + fade |
+| Toast out                    | `CubicEase EaseIn`          | 180ms | Translate + fade |
+| Popup pop                    | `BackEase EaseOut Amp=0.4`  | 260ms | Scale `0.96→1` |
+| Button press                 | `CubicEase EaseOut` (down) → `BackEase EaseOut Amp=0.4` (up) | 80ms / 160ms | `Scale 1↔0.96` (window controls: `0.9`) |
+| Card hover lift              | `CubicEase EaseOut`         | 180ms | `TranslateY 0↔-2` |
+| Card press                   | `CubicEase EaseOut` → `BackEase Amp=0.5` | 100ms / 220ms | `Scale 1↔0.97` |
+| Card icon-button press       | `CubicEase EaseOut` → `BackEase Amp=0.5` | 80ms / 180ms | `Scale 1↔0.88` |
+| Logo hover                   | `BackEase EaseOut Amp=0.4`  | 180ms | `Scale 1↔1.06` (the only "grow" hover in Apex) |
+| Card copy flash              | DispatcherTimer reset       | 280ms hold | Border → `AccentBrush` then back |
+| Card AnimateIn (on Loaded)   | `BackEase EaseOut Amp=0.5`  | 220–260ms | Opacity + translate up |
+| Primary value refresh pulse  | KeyFrame (CubicEase + BackEase) | 360ms total | `Opacity 1→0.25→1`, `Scale 1→1.08→1` |
+
+If you add a new interactive element, animate it. Static interactive elements feel broken in Apex.
+
+---
+
+## 10. Iconography
+
+The app's identity is a single-letter rounded badge. Procedural generation in `Services/IconFactory.cs`:
+- Outer rounded square (`r=12` at 64px scale), filled with a 45° linear gradient from `Lighten(accent, 0.10)` → `Darken(accent, 0.40)`.
+- Top-half overlay shine (white→transparent, 90°).
+- Outer ring at low alpha (`accent`, 7px stroke).
+- Inner ring (light, 2.5px stroke).
+- The app's first letter (`A` for ApexAuth, `P` for ApexPass) centered, white, `Segoe UI Bold` at ~`34px`.
+
+The same factory builds both the tray icon (64px) and the window icon (128px). The tray service must call `RefreshIcon()` from the `ThemeChanged` event.
+
+In-window, the logo badge mirrors this: a `36×36` rounded `Border` with the accent as background, `AccentAltBrush` outline, soft accent drop-shadow, and the letter centered in `OnAccentBrush`.
+
+---
+
+## 11. Project Layout
+
+```
+<App>/
+├─ App.xaml                    # Default brushes + button/input styles (DynamicResource consumers)
+├─ App.xaml.cs                 # ThemeService.Initialize() then show MainWindow
+├─ MainWindow.xaml(.cs)        # Header + content + toast
+├─ Services/
+│   ├─ ThemeService.cs         # Singleton palette owner + theme.json
+│   ├─ IconFactory.cs          # Procedural accent-aware logo
+│   ├─ TrayService.cs          # NotifyIcon + RefreshIcon hook
+│   └─ <DomainService>.cs      # App-specific (TotpService, VaultService, PasswordService, etc.)
+├─ UI/
+│   ├─ DialogBase.cs           # Shared chrome
+│   ├─ <Entity>CardFactory.cs  # The repeated list-item builder
+│   ├─ ThemePopup.cs           # Logo popover
+│   ├─ <Entity>Dialog.cs       # Add/edit
+│   ├─ PasswordPrompt.cs       # Reused as-is for backup/import keys
+│   └─ DarkMessageDialog.cs    # Confirm/error dialog
+├─ Crypto/                     # If the app is security-critical
+└─ Models/                     # POCOs only
+```
+
+Conventions:
+- File-scoped namespaces (`namespace ApexPass.X;`).
+- `sealed` classes for services and models.
+- No dependency injection — construct directly.
+- No MVVM framework — UI is built imperatively in C# where dynamic; in XAML where static.
+- No comments unless explaining a non-obvious detail (crypto edge case, theme propagation quirk).
+
+---
+
+## 12. ApexPass-specific Adaptation Notes
+
+When you build [[ApexPass]], reuse this design language as-is. The mapping is mostly mechanical:
+
+| ApexAuth concept | ApexPass equivalent |
+|---|---|
+| Account (TOTP secret + label) | Vault entry (label + URL + username + password + notes) |
+| TOTP code (refreshes every 30s) | Password value (revealed on hover/click) |
+| `AccountCardFactory` (card with code + Copy/Edit/Del) | `EntryCardFactory` (card with masked password + Reveal/Copy/Edit/Del) |
+| Cycle progress bar (30s window) | Password-strength bar (entropy 0–100%) — same `ProgressBar` style, color via strength gradient |
+| Logo `A` | Logo `P` |
+| `data.vault` (Fernet-encrypted JSON of `AuthAccount[]`) | `passwords.vault` (Fernet-encrypted JSON of `PasswordEntry[]`) |
+| `theme.json` | `theme.json` (same schema, in `%APPDATA%\ApexPass\`) |
+
+Reuse verbatim (copy these files; do not refactor the design system):
+- `Services/ThemeService.cs`
+- `Services/IconFactory.cs` (change the letter)
+- `Services/TrayService.cs`
+- `Crypto/Fernet.cs`, `Crypto/Scrypt.cs`
+- `UI/DialogBase.cs`, `UI/PasswordPrompt.cs`, `UI/DarkMessageDialog.cs`, `UI/ThemePopup.cs`
+- `App.xaml` (verbatim)
+
+Different by definition:
+- `MainWindow.xaml(.cs)` — different domain
+- `UI/EntryCardFactory.cs` — analogous to `AccountCardFactory`, same patterns (hover-lift, press-scale, copy-flash, reveal animation instead of code-refresh pulse)
+- `Models/PasswordEntry.cs` — new POCO
+- `Services/PasswordService.cs` — new domain logic (password generation, strength scoring)
+
+Suggested ApexPass-only additions, all following these rules:
+- **Reveal animation**: tapping the password swaps the masked dots for the real value with a 180ms opacity crossfade + brief accent-flash on the value.
+- **Strength meter**: reuse the `ProgressBar` style; color the foreground via a gradient from `DangerBrush` (low) → `accent` (high).
+- **Generator dialog**: a `DialogBase` subclass with length slider, character-class toggles, and a copy button — reuse the input styles verbatim.
+
+---
+
+## 13. Anti-patterns (Don't Ship Apex Apps That Do These)
+
+- ❌ Hardcoding a brand color in XAML (`Background="#7C73FF"`). Always reference `{DynamicResource AccentBrush}` or `{DynamicResource AccentColor}`.
+- ❌ Using `Foreground="White"` on an accent-colored surface. Use `{DynamicResource OnAccentBrush}` — the user's accent might be light.
+- ❌ Three nested visible borders. The middle one should be `BorderThickness="0"` or `LineSoftBrush`.
+- ❌ A custom corner radius like `r=11` or `r=16`. Stick to `{18, 14, 12, 10, 8}`.
+- ❌ A new font family (Inter, SF Pro, Roboto). Use the Segoe UI Variable / Cascadia Code stack.
+- ❌ `FontWeight="Normal"` or `"Light"`. Apex body text is `Bold`; hierarchy goes up from there.
+- ❌ `StaticResource` for any themed brush in XAML. Always `DynamicResource`.
+- ❌ Linear-eased animations or animations longer than `400ms`. Use `BackEase` / `CubicEase`, spring feel, 180–320ms.
+- ❌ Forgetting to subscribe to `SystemEvents.UserPreferenceChanged` — `System` mode won't follow OS theme changes.
+- ❌ Storing the master key on disk or sending the vault unencrypted anywhere. (Apex apps are security-critical; see [[feedback_apexauth_security]].)
+
+---
+
+## 14. Changelog
+
+| Date (UTC) | Change |
+|---|---|
+| 2026-05-25 | Initial design language extraction from ApexAuth (post-typography + border rework). Defines palette derivation, radius scale, weight scale, animation feel, and ApexPass adaptation guide. |
+| 2026-05-25 | **Polish pass.** Progress bar reshaped to `r=6` outer / `r=5` indicator with 1px `LineSoftBrush` outline and 1px inset (height bumped to `10px` for substance). Standardized outer panel margin at `14px` everywhere; lock-card padding `22→20` (matches dialog); lock subtitle/button vertical rhythm tightened (`16/16` instead of `18/18`); confirm-password gap `10→8`. Dialog footer gap unified to `8px` total (cancel `4`, primary `4`). Destructive primary buttons now use `OnDangerBrush` for proper red-button text contrast. Logo button gets a `1.06×` `BackEase` scale on hover (only "grow" hover in Apex) + the `ApexFocusVisualStyle`. Card icon buttons (Copy/Edit/Delete) now press-animate to `scale 0.88` like the rest of the button family. Hex preview swatch in popup dropped to `LineSoftBrush` border (was the harsher `LineBrush`). Added `ApexFocusVisualStyle` — a 1.5px dashed accent ring at `-3px` offset — wired into `RoundedButtonBase`, replacing WPF's dotted black outline. Account dialog "Finish" relabelled to "Save" for verb consistency. |
+
+> When you update ApexAuth's design system, add a line here describing the change. If a change affects ApexPass too, also bump the sibling app to match.

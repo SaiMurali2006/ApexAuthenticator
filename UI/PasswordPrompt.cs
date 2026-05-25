@@ -13,6 +13,7 @@ public sealed class PasswordPrompt : DialogBase
         {
             Text = message,
             FontSize = 13,
+            FontWeight = FontWeights.Bold,
             TextWrapping = TextWrapping.Wrap,
             Foreground = Res("MutedBrush"),
             Margin = new Thickness(0, 0, 0, 12)
@@ -22,9 +23,9 @@ public sealed class PasswordPrompt : DialogBase
         var actions = new Grid { Margin = new Thickness(0, 14, 0, 0) };
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var cancel = new Button { Content = "Cancel", Style = GetStyle("GhostButton"), Margin = new Thickness(0, 0, 5, 0) };
+        var cancel = new Button { Content = "Cancel", Style = GetStyle("GhostButton"), Margin = new Thickness(0, 0, 4, 0) };
         cancel.Click += (_, _) => DialogResult = false;
-        var ok = new Button { Content = "Continue", Style = GetStyle("PrimaryButton"), Margin = new Thickness(5, 0, 0, 0) };
+        var ok = new Button { Content = "Continue", Style = GetStyle("PrimaryButton"), Margin = new Thickness(4, 0, 0, 0) };
         ok.Click += (_, _) => DialogResult = _password.Password.Length > 0;
         Grid.SetColumn(ok, 1);
         actions.Children.Add(cancel);

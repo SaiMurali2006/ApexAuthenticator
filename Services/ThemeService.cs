@@ -196,14 +196,14 @@ public sealed class ThemeService
             CardHover     = Surface(0.08, dark ? 0.08 : 0.04),
             Input         = Surface(0.03, dark ? 0.0  : 0.02),
 
-            Line          = Surface(0.12, dark ? 0.10 : 0.10),
-            LineSoft      = Surface(0.06, dark ? 0.06 : 0.05),
+            Line          = Surface(0.08, dark ? 0.08 : 0.06),
+            LineSoft      = Surface(0.04, dark ? 0.04 : 0.025),
 
             ButtonBg      = Surface(0.04, dark ? 0.05 : 0.02),
-            ButtonBorder  = Surface(0.10, dark ? 0.12 : 0.10),
+            ButtonBorder  = Surface(0.08, dark ? 0.10 : 0.07),
             ButtonHover   = Surface(0.10, dark ? 0.10 : 0.06),
             ControlBg     = Surface(0.05, dark ? 0.06 : 0.03),
-            ControlBorder = Surface(0.10, dark ? 0.12 : 0.10),
+            ControlBorder = Surface(0.08, dark ? 0.10 : 0.07),
             ProgressTrack = Surface(0.05, dark ? 0.0  : 0.06),
             ToastBg       = Surface(0.08, dark ? 0.10 : 0.0),
 
